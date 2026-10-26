@@ -43,7 +43,7 @@
         "format:staged": "prek run",
         "lint": "oxlint --type-aware .",
         "new:route": "node scripts/generate-route.mjs",
-        "prepare": "prek install || true",
+        "prepare": "exit 0",
         "prepublishOnly": "npm run build:lib",
         "profiling": "cross-env NODE_ENV=production tsx --prof lib/index.ts",
         "start": "cross-env NODE_ENV=production NODE_OPTIONS='--max-http-header-size=32768' node dist/index.mjs",
@@ -212,8 +212,17 @@
         "wrangler": "4.152.0",
         "yaml-eslint-parser": "2.1.0"
     },
+    "pnpm": {
+        "overrides": {
+            "sanitize-html>htmlparser2": "10.1.0",
+            "htmlparser2": "10.1.0"
+        }
+    },
+    "overrides": {
+        "htmlparser2": "10.1.0"
+    },
     "engines": {
-        "node": "^22.22.2 || ^24.15.0"
+        "node": "24.x"
     },
     "packageManager": "pnpm@12.15.0+sha512.b3951d6d6ff4a9f13dc7cf56cd28d2b8eb37dbcc9c68e52e1e1191873ea9f82a017287ab50baadc5ccc494f036c67c0e47eb13608c2fa36f47711b61ea128e61"
 }
