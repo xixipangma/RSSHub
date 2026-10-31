@@ -212,17 +212,17 @@
         "wrangler": "4.153.0",
         "yaml-eslint-parser": "2.1.0"
     },
-    "pnpm": {
-        "overrides": {
-            "sanitize-html>htmlparser2": "10.1.0",
-            "htmlparser2": "10.1.0"
-        }
-    },
     "overrides": {
         "htmlparser2": "10.1.0"
     },
     "engines": {
         "node": "24.x"
     },
-    "packageManager": "pnpm@12.16.1+sha512.091d1dee7927575661b25dab3c2ae31cafc1c54d6b71ed6a6600cf0c1cb10434a447eae14015f1b23e2e6bedeed79df94a932e2164d2832280dce3fb32f656d1"
+    "packageManager": "pnpm@12.16.1+sha512.091d1dee7927575661b25dab3c2ae31cafc1c54d6b71ed6a6600cf0c1cb10434a447eae14015f1b23e2e6bedeed79df94a932e2164d2832280dce3fb32f656d1",
+    "pnpm": {
+        "overrides": {
+            "sanitize-html>htmlparser2": "10.1.0",
+            "htmlparser2": "10.1.0"
+        }
+    }
 }
