@@ -1,3 +1,34 @@
+## Project purpose and ownership
+
+This is the `xixipangma/RSSHub` fork of [DIYgod/RSSHub](https://github.com/DIYgod/RSSHub), deployed on Vercel. It provides RSS feeds consumed by Hermes Daily Debrief V2, including sources that do not offer their own RSS feeds (for example, Anthropic News).
+
+- `origin` is the deployment fork: `git@github.com:xixipangma/RSSHub.git`.
+- Treat the fork's existing and future customizations as production-critical. Never overwrite them merely to make the tree match upstream.
+- The upstream source of truth for general RSSHub maintenance is `https://github.com/DIYgod/RSSHub` (normally tracked locally as an `upstream` remote). Do not assume an upstream remote or branch exists; inspect first.
+
+## Upstream synchronization
+
+Keep this fork reasonably current with DIYgod/RSSHub while preserving fork-specific changes.
+
+1. Before a sync, inspect remotes, current branch, working tree, and the commits/diff that distinguish this fork from upstream. Leave unrelated user changes untouched.
+2. Fetch upstream and merge or rebase deliberately; do not use `reset --hard`, force-push, or a wholesale overwrite of the fork.
+3. Resolve every conflict in favor of a working combination of upstream improvements and the fork's Vercel/Hermes-specific behavior. Re-check custom files after the integration, especially deployment configuration, runtime/package-manager settings, and custom routes.
+4. Run the relevant formatting, type-check, and build/route validation commands before publishing. Investigate deployment-specific build failures rather than silently reverting required customizations.
+5. For completed code or configuration changes, create a descriptive commit and push it to `origin` so Vercel can deploy it. Do not commit or push unrelated pre-existing changes; ask if the intended commit scope is unclear.
+
+## Vercel deployment invariants
+
+- Vercel is the deployment path for this fork. Use the connected Vercel tools when deployment status, logs, or configuration need inspection or management.
+- Preserve the current Vercel-specific setup unless an explicitly verified replacement is part of the task. At present this includes `vercel.json`, the `vercel-build` script, Node `24.x`, pnpm `12.15.0`, and the Vercel install command (`pnpm install --ignore-scripts --no-frozen-lockfile`) with the Patchright include-files configuration.
+- Before changing Node, pnpm/npm, lockfile, build, or `vercel.json` settings, identify why the fork differs from upstream, check the production impact, and validate a Vercel-compatible build. Do not casually normalize these files to upstream defaults.
+- Never expose deployment tokens, environment variables, or other credentials in commits, logs, or responses.
+
+## Change discipline
+
+- Prefer the smallest change that fixes the requested feed or deployment issue.
+- Validate affected RSS route examples against their live sources where practical, and ensure Hermes-required feeds remain available after an upstream sync.
+- Follow upstream RSSHub conventions unless they conflict with a documented fork requirement below.
+
 ## Review guidelines
 
 ### Route Configuration
