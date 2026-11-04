@@ -1,3 +1,4 @@
+import InvalidParameterError from '@/errors/types/invalid-parameter';
 import { residentialItems } from '@/routes/suumo/residential';
 import type { Data, Route } from '@/types';
 import { getRouteLimit } from '@/utils/route-limit';
@@ -8,9 +9,15 @@ export const handler = async (ctx): Promise<Data> => {
     const pref: string = ctx.req.param('pref');
     const city: string = ctx.req.param('city');
     checkSlugs({ pref, city });
-    const listUrl = athomeListUrl('chintai', pref, city);
+    // A path segment, not a query: the route cache keys on the path, so `?page=2` would be served page 1.
+    const page: string = ctx.req.param('page') ?? '1';
+    if (!/^[1-9]\d*$/.test(page)) {
+        throw new InvalidParameterError(`page must be a whole number from 1, not "${page}"`);
+    }
+    const listUrl = athomeListUrl('chintai', pref, city, page);
     const units = parseAthomeChintai(stateOf(await fetchAthomeList(listUrl)));
-    if (units.length === 0) {
+    // A page past the last renders with no building; only an empty first page means a wrong slug.
+    if (units.length === 0 && page === '1') {
         throw new Error(`athome: no listing found on ${listUrl}; the area slug may be wrong or the page structure changed`);
     }
     const limit = Math.min(getRouteLimit(ctx, DEFAULT_LIMIT), units.length);
@@ -21,11 +28,13 @@ export const handler = async (ctx): Promise<Data> => {
         link: listUrl,
         language: 'ja',
         item: items,
+        // An empty page 1 has already failed above; only a page past the last gets here empty.
+        allowEmpty: true,
     };
 };
 
 export const route: Route = {
-    path: '/chintai/:pref/:city',
+    path: '/chintai/:pref/:city/:page?',
     name: '賃貸物件',
     url: 'www.athome.co.jp',
     maintainers: ['pseudoyu'],
@@ -37,6 +46,10 @@ export const route: Route = {
         },
         city: {
             description: '市区町村 slug as the site spells it — `minato-city`, `yokohama_naka-city`. Note the underscore in 政令指定都市 slugs.',
+        },
+        page: {
+            description: 'List page to read, from 1, in the same 新着順; a page past the last returns no item',
+            default: '1',
         },
     },
     description: `賃貸 rooms on アットホーム for one 市区町村，newest first (the page's own 新着順).

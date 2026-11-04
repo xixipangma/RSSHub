@@ -16,8 +16,11 @@ export const HOST = 'https://www.athome.co.jp';
 const SLUG = /^[a-z\d_-]+$/;
 export const DEFAULT_LIMIT = 20;
 
-/** A list page in the site's own 新着順 (`sort=33`; without it the page opens in おすすめ順 / 指定なし, sort 95). */
-export const athomeListUrl = (kind: string, pref: string, city: string): string => `${HOST}/${kind}/${pref}/${city}/list/?sort=33`;
+/**
+ * A list page in the site's own 新着順 (`sort=33`; without it the page opens in おすすめ順 / 指定なし, sort 95).
+ * Later pages are `list/page<N>/` and keep the sort, so pages 1, 2, 3 follow on from each other.
+ */
+export const athomeListUrl = (kind: string, pref: string, city: string, page = '1'): string => `${HOST}/${kind}/${pref}/${city}/list/${page === '1' ? '' : `page${page}/`}?sort=33`;
 
 export const checkSlugs = (slugs: Record<string, string>) => {
     for (const [name, value] of Object.entries(slugs)) {
