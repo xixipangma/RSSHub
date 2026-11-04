@@ -29,6 +29,13 @@ Keep this fork reasonably current with DIYgod/RSSHub while preserving fork-speci
 - Validate affected RSS route examples against their live sources where practical, and ensure Hermes-required feeds remain available after an upstream sync.
 - Follow upstream RSSHub conventions unless they conflict with a documented fork requirement below.
 
+## Internal change log
+
+- Record every repository change in `internal_docs/changelog.md` in the same commit as the changed files. This is the durable handoff context for future agents.
+- Add a newest-first dated entry with: a short summary, affected files, rationale, verification performed, and commit subject. A later or follow-up entry may include a commit hash; do not amend a commit merely to record its self-referential final hash.
+- Keep entries factual and concise. Never include tokens, credentials, raw environment-variable values, or private user data.
+- For an upstream synchronization, also record the upstream revision/range, conflicts resolved, and every retained fork-specific customization.
+
 ## Review guidelines
 
 ### Route Configuration
