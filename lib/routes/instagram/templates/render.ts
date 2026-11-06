@@ -11,17 +11,18 @@ export const renderItems = (items) =>
 
         let description: string;
         switch (productType) {
-            case 'carousel_container': {
-                const images = item.carousel_media.map((i) => ({
-                    ...i.image_versions2.candidates.toSorted((a, b) => b.width - a.width)[0],
-                    alt: item.accessibility_caption,
-                }));
-                description = renderImages({
-                    summary,
-                    images,
-                });
+            case 'carousel_container':
+                description = item.carousel_media
+                    .map((media, index) => {
+                        const image = media.image_versions2.candidates.toSorted((a, b) => b.width - a.width)[0];
+                        const mediaSummary = index === 0 ? summary : '';
+                        return media.media_type === 2
+                            ? renderVideo({ summary: mediaSummary, image: image.url, video: media.video_versions[0] })
+                            : renderImages({ summary: mediaSummary, images: [{ ...image, alt: item.accessibility_caption }] });
+                    })
+                    .join('<br>');
                 break;
-            }
+
             case 'clips':
             case 'igtv':
             case 'longform':

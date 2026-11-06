@@ -1,5 +1,4 @@
 import { type CheerioAPI, load } from 'cheerio';
-import { FetchError } from 'ofetch';
 import pMap from 'p-map';
 
 import { config } from '@/config';
@@ -11,7 +10,8 @@ import got from '@/utils/got';
 import { parseDate } from '@/utils/parse-date';
 import { getPlaywrightPage } from '@/utils/playwright';
 
-const baseUrl = 'https://xsijishe.com';
+import { baseUrl, browserResourceTypes, isBlockedRequest, toBrowserCookies } from './utils';
+
 type ForumSource = {
     cookie: string;
     browser?: Awaited<ReturnType<typeof getPlaywrightPage>>;
@@ -84,16 +84,8 @@ async function createBrowser(source: ForumSource) {
         noGoto: true,
         closeTimeout: 0,
         onBeforeLoad: async (_page, context) => {
-            const cookies = source.cookie
-                .split(';')
-                .map((entry) => entry.trim())
-                .filter((entry) => entry.indexOf('=') > 0)
-                .map((entry) => {
-                    const separator = entry.indexOf('=');
-                    return { name: entry.slice(0, separator), value: entry.slice(separator + 1), url: `${baseUrl}/` };
-                });
-            await context!.addCookies(cookies);
-            await context!.route('**/*', (route) => (['document', 'script', 'xhr', 'fetch', 'stylesheet'].includes(route.request().resourceType()) ? route.continue() : route.abort()));
+            await context!.addCookies(toBrowserCookies(source.cookie));
+            await context!.route('**/*', (route) => (browserResourceTypes.has(route.request().resourceType()) ? route.continue() : route.abort()));
         },
     });
     source.browser = browser;
@@ -111,7 +103,7 @@ async function fetchForumDocument(link: string, selector: string, source: ForumS
                 return $;
             }
         } catch (error) {
-            if (!(error instanceof FetchError) || (error.status !== 403 && error.status !== 429)) {
+            if (!isBlockedRequest(error)) {
                 throw error;
             }
         }
