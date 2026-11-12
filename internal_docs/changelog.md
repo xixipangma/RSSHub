@@ -2,6 +2,14 @@
 
 This is the durable, newest-first record of repository changes for agents maintaining this fork. Update it in the same commit as every repository change. Do not record secrets or private data.
 
+## 2026-11-12 — Remove dom-serializer override to fix Vercel runtime ERR_REQUIRE_ESM
+
+- **Summary:** Removed global `dom-serializer: '^3.1.1'` override from `pnpm-workspace.yaml` and regenerated `pnpm-lock.yaml`, resolving runtime `ERR_REQUIRE_ESM` where CommonJS `domutils@3.2.2` failed to `require('dom-serializer')`.
+- **Affected files:** `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `internal_docs/changelog.md`.
+- **Rationale:** Upstream included a global override `dom-serializer: '^3.1.1'`, which forced transitive CommonJS dependencies like `domutils@3.2.2` (used by `htmlparser2@10.1.0` and `sanitize-html`) to resolve `dom-serializer` to the pure ESM v3.1.1. In Vercel's Node.js serverless runtime, `require('dom-serializer')` inside `domutils/lib/stringify.js` failed with `ERR_REQUIRE_ESM`. Removing the global override allows `domutils@3.2.2` to resolve to `dom-serializer@2.0.0` (CommonJS) while `domutils@4.0.2` naturally resolves to `dom-serializer@3.1.1` (ESM).
+- **Verification:** Verified `domutils@3.2.2/lib/stringify.js` and `server.mjs` load in production mode without `ERR_REQUIRE_ESM` under `--no-experimental-require-module`.
+- **Commit:** `fix(vercel): remove dom-serializer override to restore dom-serializer 2.0.0 for domutils 3.2.2`.
+
 ## 2026-11-12 — Pin htmlparser2 10.1.0 in pnpm-workspace.yaml to fix Vercel runtime ERR_REQUIRE_ESM
 
 - **Summary:** Pinned `htmlparser2: '10.1.0'` in `pnpm-workspace.yaml` overrides and updated `pnpm-lock.yaml`, resolving runtime `ERR_REQUIRE_ESM` inside Vercel's Serverless Function environment.
