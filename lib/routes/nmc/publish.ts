@@ -12,6 +12,9 @@ import timezone from '@/utils/timezone';
 
 import { renderDescription } from './templates/description';
 
+const leadTimeForecastRegex = /^(\d{4})(\d{2})(\d{2}) (\d{2}:\d{2}) \d+小时$/;
+const leadTimeRegex = /\d+小时$/;
+
 export const handler = async (ctx: Context): Promise<Data> => {
     const { id = 'observations/hourly-temperature/html' } = ctx.req.param();
     const productId = id.replace(/\.(html|htm)$/, '/$1');
@@ -24,6 +27,16 @@ export const handler = async (ctx: Context): Promise<Data> => {
     const response = await ofetch(targetUrl);
     const $: CheerioAPI = load(response);
     const language = ($('html').attr('lang') ?? 'zh') as Language;
+
+    const productName =
+        $('div.nav1 a.actived, div#menuNavBar button.dropdown-toggle')
+            .toArray()
+            .map((el) => $(el).text())
+            .join(' - ') || $('title').text();
+    // Lead-time forecasts list one image per forecast hour of a single issue, labeled like
+    // "20261109 14:00 01小时" (e.g. 近海海雾预报) or "024小时" with the issue time below it
+    // (e.g. 降水量预报), so each issue becomes one item with the image the page shows.
+    const isLeadTimeForecast = leadTimeRegex.test($('div[data-img]').first().attr('data-time') ?? '');
 
     const items: DataItem[] =
         $('div.row div[data-img]').length === 0
@@ -77,18 +90,16 @@ export const handler = async (ctx: Context): Promise<Data> => {
 
                       return processedItem;
                   })
-            : $('div[data-img]')
+            : $(isLeadTimeForecast ? 'div[data-img].actived' : 'div[data-img]')
                   .slice(0, limit)
                   .toArray()
                   .map((el) => {
                       const $el: Cheerio<Element> = $(el);
 
                       const image: string | undefined = $el.attr('data-img');
+                      const issueTime = $el.attr('data-time')?.match(leadTimeForecastRegex);
 
-                      const title = `${$el.find('div').text()} - ${$('div.nav1 a.actived, div#menuNavBar button.dropdown-toggle')
-                          .toArray()
-                          .map((el) => $(el).text())
-                          .join(' - ')}`;
+                      const title = `${issueTime ? `${issueTime[2]}/${issueTime[3]} ${issueTime[4]}` : $el.find('div').text()} - ${productName}`;
                       const description: string | undefined = renderDescription({
                           images: image
                               ? [
@@ -100,7 +111,9 @@ export const handler = async (ctx: Context): Promise<Data> => {
                               : undefined,
                       });
                       const year: string | undefined = image?.match(/product\/(\d{4})\//)?.[1];
-                      const pubDateStr: string | undefined = `${year ? `${year}/` : ''}${$el.attr('data-time')}`;
+                      const pubDateStr: string | undefined = issueTime
+                          ? `${issueTime[1]}/${issueTime[2]}/${issueTime[3]} ${issueTime[4]}`
+                          : `${year ? `${year}/` : ''}${isLeadTimeForecast ? $el.find('div').text().trim() : $el.attr('data-time')}`;
                       const linkUrl: string | undefined = targetUrl;
                       const guid = `${linkUrl}#${pubDateStr}`;
                       const upDatedStr: string | undefined = pubDateStr;

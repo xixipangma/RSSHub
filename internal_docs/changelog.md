@@ -2,6 +2,19 @@
 
 This is the durable, newest-first record of repository changes for agents maintaining this fork. Update it in the same commit as every repository change. Do not record secrets or private data.
 
+## 2026-11-12 — Sync upstream DIYgod/RSSHub (74 commits) & deploy to Vercel
+
+- **Summary:** Synchronized 74 commits from `DIYgod/RSSHub:master` (up to `c86f1d537`), bringing in new and updated routes (`asus`, `groq`, `mistral`, `polymarket`, `aljazeera`, etc.) and dependency updates.
+- **Affected files:** 66 files across `lib/routes/*`, `package.json`, `pnpm-lock.yaml`, `internal_docs/changelog.md`.
+- **Upstream revision range:** `301009ce2...c86f1d537` (74 commits).
+- **Conflicts resolved & retained fork invariants:**
+  - Resolved `package.json` merge conflict to preserve `engines: { "node": "24.x" }` and `scripts.prepare: "exit 0"`.
+  - Preserved `pnpm-workspace.yaml` overrides (`htmlparser2: '10.1.0'`, `'sanitize-html>htmlparser2': '10.1.0'`) and omitted broken global `dom-serializer` override to prevent runtime `ERR_REQUIRE_ESM`.
+  - Preserved `vercel.json` (`installCommand: "pnpm install --ignore-scripts --no-frozen-lockfile"` and Patchright include-files).
+  - Preserved `.npmrc` (`ignore-scripts=true`) and `.github/workflows/sync-fork.yml` (`if: false`).
+- **Verification:** Verified `pnpm install --ignore-scripts --no-frozen-lockfile` completes in 6ms; `npm run build:routes` and `tsdown` generate 4480+ routes cleanly; and `server.mjs` loads without error in production mode under `--no-experimental-require-module`.
+- **Commit:** `sync: merge 74 upstream commits from DIYgod/RSSHub:master`.
+
 ## 2026-11-12 — Remove dom-serializer override to fix Vercel runtime ERR_REQUIRE_ESM
 
 - **Summary:** Removed global `dom-serializer: '^3.1.1'` override from `pnpm-workspace.yaml` and regenerated `pnpm-lock.yaml`, resolving runtime `ERR_REQUIRE_ESM` where CommonJS `domutils@3.2.2` failed to `require('dom-serializer')`.
