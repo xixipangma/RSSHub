@@ -2,6 +2,14 @@
 
 This is the durable, newest-first record of repository changes for agents maintaining this fork. Update it in the same commit as every repository change. Do not record secrets or private data.
 
+## 2026-11-12 — Pin htmlparser2 10.1.0 in pnpm-workspace.yaml to fix Vercel runtime ERR_REQUIRE_ESM
+
+- **Summary:** Pinned `htmlparser2: '10.1.0'` in `pnpm-workspace.yaml` overrides and updated `pnpm-lock.yaml`, resolving runtime `ERR_REQUIRE_ESM` inside Vercel's Serverless Function environment.
+- **Affected files:** `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `internal_docs/changelog.md`.
+- **Rationale:** While Vercel build succeeded with `htmlparser2@12.0.0`, the runtime serverless environment failed on invocation because `sanitize-html` uses CommonJS `require('htmlparser2')`, which throws `ERR_REQUIRE_ESM` when `htmlparser2` is ESM (v12). Under pnpm v12, overrides must be declared in `pnpm-workspace.yaml`. Declaring `htmlparser2: '10.1.0'` here ensures pnpm correctly installs the CommonJS version and resolves its lockfile entries without `ERR_PNPM_LOCKFILE_MISSING_DEPENDENCY`.
+- **Verification:** Verified `pnpm install --ignore-scripts --no-frozen-lockfile` succeeds in 22ms and `pnpm-lock.yaml` cleanly records `htmlparser2@10.1.0` package and snapshot resolutions.
+- **Commit:** `fix(vercel): pin htmlparser2 10.1.0 in pnpm-workspace.yaml to fix runtime ERR_REQUIRE_ESM`.
+
 ## 2026-11-09 — Sync upstream DIYgod/RSSHub & fix Vercel pnpm-lockfile dependency error
 
 - **Summary:** Synchronized 6 commits from `DIYgod/RSSHub:master` (up to `301009ce2`), merged cleanly into `master`, and resolved the Vercel deployment failure (`BUILD_UTILS_SPAWN_1` / `ERR_PNPM_LOCKFILE_MISSING_DEPENDENCY`) by regenerating `pnpm-lock.yaml` to align `htmlparser2: 12.0.0` with `pnpm-workspace.yaml`.
