@@ -1,24 +1,41 @@
+import { createHash } from 'node:crypto';
+
 import type { CheerioAPI } from 'cheerio';
 import { load } from 'cheerio';
 import type { Element } from 'domhandler';
 import { decodeHTMLStrict } from 'entities';
 import type { MiddlewareHandler } from 'hono';
 import { convert } from 'html-to-text';
-import markdownit from 'markdown-it';
 import { RE2JS } from 're2js';
 import sanitizeHtml from 'sanitize-html';
 
 import { config } from '@/config';
+import InvalidParameterError from '@/errors/types/invalid-parameter';
 import type { Data, DataItem } from '@/types';
 import { extractAttachments, getImageMimeType } from '@/utils/attachments';
 import cache from '@/utils/cache';
+import type { LinkResolver } from '@/utils/link-resolver';
+import { createLinkResolver } from '@/utils/link-resolver';
+import markdownit from '@/utils/markdown-it';
+import { parse as parseFulltext } from '@/utils/mercury';
 import ofetch from '@/utils/ofetch';
+
+// filters run synchronously, and matching with re2 costs up to program size * text length
+const MAX_FILTER_LENGTH = 1024;
+const MAX_FILTER_PROGRAM_SIZE = 2048;
+const MAX_FILTER_STEPS = 2 ** 24; // program size * text length of a single match
+const MAX_FILTER_TIME = 1000; // milliseconds spent on all filters of a request
 
 const md = markdownit({
     html: true,
 });
 
-const resolveRelativeLink = ($: CheerioAPI, elem: Element, attr: string, baseUrl?: string) => {
+const removeImages = ($: CheerioAPI) => {
+    $('img, picture').remove();
+    $('video[poster]').removeAttr('poster');
+};
+
+const resolveRelativeLink = ($: CheerioAPI, elem: Element, attr: string, resolveLink: LinkResolver, baseUrl?: string) => {
     const $elem = $(elem);
 
     if (baseUrl) {
@@ -26,7 +43,7 @@ const resolveRelativeLink = ($: CheerioAPI, elem: Element, attr: string, baseUrl
             const oldAttr = $elem.attr(attr);
             if (oldAttr) {
                 // e.g. <video><source src="https://example.com"></video> should leave <video> unchanged
-                $elem.attr(attr, new URL(oldAttr, baseUrl).href);
+                $elem.attr(attr, resolveLink(oldAttr, baseUrl));
             }
         } catch {
             // no-empty
@@ -53,6 +70,33 @@ const getAiCompletion = async (prompt: string, text: string) => {
     });
 
     return response.choices[0].message.content;
+};
+
+// the content cache is shared by every route and client, so key the completion on what it is
+// generated from (prompt + text) rather than on item.link, which any feed can reuse with other text
+const getAiCacheKey = (type: 'title' | 'description', prompt: string, text: string) => `openai:${type}:${createHash('sha256').update(prompt).update('\0').update(text).digest('hex')}`;
+
+// the same limit Mercury applies to the pages it fetches itself
+const FULLTEXT_MAX_LENGTH = 5 * 1024 * 1024;
+
+// bound the download time and decoded size of the page
+const getFulltextHtml = async (link: string) => {
+    const signal = AbortSignal.timeout(config.requestTimeout);
+    const { body, headers } = await ofetch.raw(link, { responseType: 'stream', signal, publicOnly: true });
+    const contentType = headers.get('content-type');
+    if (contentType && !/html|text|xml/i.test(contentType)) {
+        await body?.cancel();
+        throw new Error(`Content of ${link} does not appear to be text`);
+    }
+    const chunks = body!.pipeThrough(new TextDecoderStream(), { signal });
+    let html = '';
+    for await (const chunk of chunks) {
+        html += chunk;
+        if (html.length > FULLTEXT_MAX_LENGTH) {
+            throw new Error(`Content of ${link} is too large`);
+        }
+    }
+    return html;
 };
 
 const getAuthorString = (item: DataItem) => {
@@ -93,14 +137,22 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
             delete data.image;
         }
 
+        // one budget for every link this feed resolves, see @/utils/link-resolver
+        const resolveLink = createLinkResolver();
+
         const handleItem = (item: DataItem) => {
+            // A fixed message, so a stray cached value returned as an item never ends up on the error page
+            if (typeof item !== 'object' || item === null) {
+                throw new TypeError('Feed items must be objects');
+            }
             // oxlint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion -- routes may return non-string values at runtime
             item.title &&= decodeHTMLStrict(item.title + '');
             item.description ||= item.content?.html;
 
             // handle pubDate
             if (item.pubDate) {
-                item.pubDate = new Date(item.pubDate).toUTCString();
+                const date = new Date(item.pubDate);
+                item.pubDate = Number.isNaN(date.getTime()) ? undefined : date.toUTCString();
             }
 
             // handle link
@@ -110,7 +162,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
                     baseUrl = baseUrl.startsWith('//') ? 'http:' + baseUrl : 'http://' + baseUrl;
                 }
 
-                item.link = new URL(item.link, baseUrl).href;
+                item.link = resolveLink(item.link, baseUrl);
             }
 
             // handle description
@@ -124,8 +176,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
 
                 $('script').remove();
                 if (hideImages) {
-                    $('img, picture').remove();
-                    $('video[poster]').removeAttr('poster');
+                    removeImages($);
                 }
 
                 $('img').each((_, ele) => {
@@ -157,15 +208,15 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
                 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy
                 // https://www.w3schools.com/tags/att_href.asp
                 $('a, area').each((_, elem) => {
-                    resolveRelativeLink($, elem, 'href', baseUrl);
+                    resolveRelativeLink($, elem, 'href', resolveLink, baseUrl);
                     // $(elem).attr('rel', 'noreferrer');  // currently no such a need
                 });
                 // https://www.w3schools.com/tags/att_src.asp
                 $('img, video, audio, source, iframe, embed, track').each((_, elem) => {
-                    resolveRelativeLink($, elem, 'src', baseUrl);
+                    resolveRelativeLink($, elem, 'src', resolveLink, baseUrl);
                 });
                 $('video[poster]').each((_, elem) => {
-                    resolveRelativeLink($, elem, 'poster', baseUrl);
+                    resolveRelativeLink($, elem, 'poster', resolveLink, baseUrl);
                 });
                 $('img, iframe').each((_, elem) => {
                     if (!$(elem).attr('referrerpolicy')) {
@@ -174,7 +225,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
                 });
 
                 if (extractEnclosures) {
-                    item.attachments = extractAttachments($, item, hideImages);
+                    item.attachments = extractAttachments($, item, hideImages, resolveLink);
                 }
 
                 item.description = $('body').html() + '' + (config.suffix || '');
@@ -222,17 +273,49 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
 
         // filter
         const engine = config.feature.filter_regex_engine;
-        const makeRegex = (str: string) => {
+        const compileRegex = (str: string) => {
+            if (str.length > MAX_FILTER_LENGTH) {
+                throw new InvalidParameterError(`Invalid filter: longer than ${MAX_FILTER_LENGTH} characters.`);
+            }
             // default: case_senstivie = true
             const insensitive = ctx.req.query('filter_case_sensitive') === 'false';
             switch (engine) {
                 case 'regexp':
                     return new RegExp(str, insensitive ? 'i' : '');
-                case 're2':
-                    return RE2JS.compile(str, insensitive ? RE2JS.CASE_INSENSITIVE : 0);
+                case 're2': {
+                    const regex = RE2JS.compile(str, insensitive ? RE2JS.CASE_INSENSITIVE : 0);
+                    // counted repetition is expanded at compile time, e.g. `.{0,1000}` takes 2000 instructions
+                    if (regex.programSize() > MAX_FILTER_PROGRAM_SIZE) {
+                        throw new InvalidParameterError('Invalid filter: too complex, please simplify it.');
+                    }
+                    return regex;
+                }
                 default:
                     throw new Error(`Invalid Engine Value: ${engine}, please check your config.`);
             }
+        };
+        // compile each filter once per request instead of once per item
+        const regexes = new Map<string, ReturnType<typeof compileRegex>>();
+        const makeRegex = (str: string) => {
+            let regex = regexes.get(str);
+            if (!regex) {
+                regex = compileRegex(str);
+                regexes.set(str, regex);
+            }
+            return regex;
+        };
+        const filterStart = Date.now();
+        const testRegex = (regex: ReturnType<typeof compileRegex>, str: string) => {
+            if (Date.now() - filterStart > MAX_FILTER_TIME) {
+                throw new InvalidParameterError('Invalid filter: takes too long on this feed, please simplify it.');
+            }
+            if (regex instanceof RE2JS) {
+                if (regex.programSize() * str.length > MAX_FILTER_STEPS) {
+                    throw new InvalidParameterError('Invalid filter: too complex for this feed, please simplify it.');
+                }
+                return regex.matcher(str).find();
+            }
+            return regex.test(str);
         };
 
         if (ctx.req.query('filter')) {
@@ -243,10 +326,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
                 const description = item.description || title;
                 const author = getAuthorString(item);
                 const category = Array.isArray(item.category) ? item.category : [];
-                const isFilter =
-                    regex instanceof RE2JS
-                        ? regex.matcher(title).find() || regex.matcher(description).find() || regex.matcher(author).find() || category.some((c) => regex.matcher(c).find())
-                        : title.match(regex) || description.match(regex) || author.match(regex) || category.some((c) => c.match(regex));
+                const isFilter = testRegex(regex, title) || testRegex(regex, description) || testRegex(regex, author) || category.some((c) => testRegex(regex, c));
 
                 return isFilter;
             });
@@ -263,19 +343,19 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
 
                 if (ctx.req.query('filter_title')) {
                     const titleRegex = makeRegex(ctx.req.query('filter_title')!);
-                    isFilter = titleRegex instanceof RE2JS ? titleRegex.matcher(title).find() : titleRegex.test(title);
+                    isFilter = testRegex(titleRegex, title);
                 }
                 if (ctx.req.query('filter_description')) {
                     const descriptionRegex = makeRegex(ctx.req.query('filter_description')!);
-                    isFilter &&= descriptionRegex instanceof RE2JS ? descriptionRegex.matcher(description).find() : descriptionRegex.test(description);
+                    isFilter &&= testRegex(descriptionRegex, description);
                 }
                 if (ctx.req.query('filter_author')) {
                     const authorRegex = makeRegex(ctx.req.query('filter_author')!);
-                    isFilter &&= authorRegex instanceof RE2JS ? authorRegex.matcher(author).find() : authorRegex.test(author);
+                    isFilter &&= testRegex(authorRegex, author);
                 }
                 if (ctx.req.query('filter_category')) {
                     const categoryRegex = makeRegex(ctx.req.query('filter_category')!);
-                    isFilter &&= category.some((c) => (categoryRegex instanceof RE2JS ? categoryRegex.matcher(c).find() : c.match(categoryRegex)));
+                    isFilter &&= category.some((c) => testRegex(categoryRegex, c));
                 }
 
                 return isFilter;
@@ -292,19 +372,19 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
 
                 if (ctx.req.query('filterout') || ctx.req.query('filterout_title')) {
                     const titleRegex = makeRegex(ctx.req.query('filterout_title') || ctx.req.query('filterout')!);
-                    isFilter = titleRegex instanceof RE2JS ? !titleRegex.matcher(title).find() : !titleRegex.test(title);
+                    isFilter = !testRegex(titleRegex, title);
                 }
                 if (ctx.req.query('filterout') || ctx.req.query('filterout_description')) {
                     const descriptionRegex = makeRegex(ctx.req.query('filterout_description') || ctx.req.query('filterout')!);
-                    isFilter &&= descriptionRegex instanceof RE2JS ? !descriptionRegex.matcher(description).find() : !descriptionRegex.test(description);
+                    isFilter &&= !testRegex(descriptionRegex, description);
                 }
                 if (ctx.req.query('filterout_author')) {
                     const authorRegex = makeRegex(ctx.req.query('filterout_author')!);
-                    isFilter &&= authorRegex instanceof RE2JS ? !authorRegex.matcher(author).find() : !authorRegex.test(author);
+                    isFilter &&= !testRegex(authorRegex, author);
                 }
                 if (ctx.req.query('filterout_category')) {
                     const categoryRegex = makeRegex(ctx.req.query('filterout_category')!);
-                    isFilter &&= category.every((c) => !(categoryRegex instanceof RE2JS ? categoryRegex.matcher(c).find() : c.match(categoryRegex)));
+                    isFilter &&= category.every((c) => !testRegex(categoryRegex, c));
                 }
 
                 return isFilter;
@@ -350,13 +430,13 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
                     if (link) {
                         // if parser failed, return default description and not report error
                         try {
-                            const { default: Parser } = await import('@jocmp/mercury-parser');
-                            const res = await ofetch(link);
-                            const $ = load(res);
-                            const result = await Parser.parse(link, {
-                                html: $.html(),
-                            });
-                            return result;
+                            // the link comes from upstream content: refuse non-public destinations
+                            const html = await getFulltextHtml(link);
+                            if (!html) {
+                                // mercury would fetch the link again itself when given an empty document
+                                return;
+                            }
+                            return await parseFulltext(link, html);
                         } catch {
                             // no-empty
                         }
@@ -365,8 +445,16 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
 
                 item.author = author || parsed_result?.author;
                 item.description = parsed_result && parsed_result.content.length > 40 ? decodeHTMLStrict(parsed_result.content) : description;
-                if (extractEnclosures && parsed_result?.content.length > 40 && item.description) {
-                    item.attachments = extractAttachments(load(item.description), item, hideImages);
+                if ((!hideImages && !extractEnclosures) || !(parsed_result?.content.length > 40) || !item.description) {
+                    return;
+                }
+                const $ = load(item.description);
+                if (hideImages) {
+                    removeImages($);
+                    item.description = $('body').html()!;
+                }
+                if (extractEnclosures) {
+                    item.attachments = extractAttachments($, item, hideImages, resolveLink);
                 }
             });
             await Promise.all(tasks);
@@ -379,7 +467,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
                     try {
                         // handle description
                         if (config.openai.inputOption === 'description' && item.description) {
-                            const description = await cache.tryGet(`openai:description:${item.link}`, async () => {
+                            const description = await cache.tryGet(getAiCacheKey('description', config.openai.promptDescription, item.description), async () => {
                                 const description = convert(item.description!);
                                 const descriptionMd = await getAiCompletion(config.openai.promptDescription, description);
                                 return md.render(descriptionMd);
@@ -391,7 +479,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
                         }
                         // handle title
                         else if (config.openai.inputOption === 'title' && item.title) {
-                            const title = await cache.tryGet(`openai:title:${item.link}`, async () => {
+                            const title = await cache.tryGet(getAiCacheKey('title', config.openai.promptTitle, item.title), async () => {
                                 const title = convert(item.title!);
                                 return await getAiCompletion(config.openai.promptTitle, title);
                             });
@@ -402,7 +490,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
                         }
                         // handle both
                         else if (config.openai.inputOption === 'both' && item.title && item.description) {
-                            const title = await cache.tryGet(`openai:title:${item.link}`, async () => {
+                            const title = await cache.tryGet(getAiCacheKey('title', config.openai.promptTitle, item.title), async () => {
                                 const title = convert(item.title!);
                                 return await getAiCompletion(config.openai.promptTitle, title);
                             });
@@ -411,7 +499,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
                                 item.title = title + '';
                             }
 
-                            const description = await cache.tryGet(`openai:description:${item.link}`, async () => {
+                            const description = await cache.tryGet(getAiCacheKey('description', config.openai.promptDescription, item.description), async () => {
                                 const description = convert(item.description!);
                                 const descriptionMd = await getAiCompletion(config.openai.promptDescription, description);
                                 return md.render(descriptionMd);

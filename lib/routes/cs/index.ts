@@ -8,7 +8,7 @@ import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
 import timezone from '@/utils/timezone';
 
-import { currentCategoryPaths, getCurrentItems } from './utils';
+import { currentCategoryPaths, getCurrentItems, isSiteLink } from './utils';
 
 const decodeBufferByCharset = (buffer) => {
     const isGBK = /charset="?'?gb/i.test(buffer.toString());
@@ -241,8 +241,8 @@ async function handler(ctx) {
     const limit = getRouteLimit(ctx, 30);
 
     const rootUrl = 'https://www.cs.com.cn';
-    const categoryPath = currentCategoryPaths[category] ?? (category.endsWith('/') || category.endsWith('.html') ? category : `${category}/`);
-    const currentUrl = new URL(categoryPath, rootUrl).href;
+    const categoryPath = currentCategoryPaths[category] ?? `/${category.endsWith('/') || category.endsWith('.html') ? category : `${category}/`}`;
+    const currentUrl = `${rootUrl}${categoryPath}`;
 
     const { data: response } = await got(currentUrl, {
         responseType: 'buffer',
@@ -273,6 +273,9 @@ async function handler(ctx) {
     items = await Promise.all(
         items.map((item) =>
             cache.tryGet(item.link, async () => {
+                if (!isSiteLink(item.link)) {
+                    return item;
+                }
                 try {
                     const { data: detailResponse } = await got(item.link, {
                         responseType: 'buffer',

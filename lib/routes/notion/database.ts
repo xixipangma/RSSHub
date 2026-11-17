@@ -1,7 +1,6 @@
 import type { PageObjectResponse } from '@notionhq/client';
 import { APIErrorCode, Client, isFullPage, isNotionClientError } from '@notionhq/client';
 import { load } from 'cheerio';
-import MarkdownIt from 'markdown-it';
 import { NotionToMarkdown } from 'notion-to-md';
 
 import { config } from '@/config';
@@ -11,6 +10,7 @@ import type { Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
 import logger from '@/utils/logger';
+import MarkdownIt from '@/utils/markdown-it';
 import { parseDate } from '@/utils/parse-date';
 
 const md = MarkdownIt({
@@ -124,6 +124,7 @@ async function handler(ctx) {
                             const response = await got({
                                 method: 'get',
                                 url: articleLink,
+                                publicOnly: true,
                             });
                             const $ = load(response.body);
                             const articleAuthor = $('meta[name="author"]').attr('content');

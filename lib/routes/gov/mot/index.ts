@@ -19,7 +19,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
 
     const baseUrl = 'https://www.mot.gov.cn';
     const image = `${baseUrl}/images/logo.png`;
-    const targetUrl: string = new URL(category.endsWith('/') ? category : `${category}/`, baseUrl).href;
+    const targetUrl = `${baseUrl}/${category.endsWith('/') ? category : `${category}/`}`;
 
     const response = await ofetch(targetUrl);
     const $: CheerioAPI = load(response);
@@ -48,7 +48,12 @@ export const handler = async (ctx: Context): Promise<Data> => {
     items = await pMap(
         items,
         (item) => {
-            if (!item.link || !/mot\.gov\.cn/.test(item.link) || !item.link.endsWith('.html')) {
+            if (!item.link || !item.link.endsWith('.html')) {
+                return item;
+            }
+            // only follow links on the site itself
+            const { protocol, hostname } = new URL(item.link);
+            if (!['http:', 'https:'].includes(protocol) || (hostname !== 'mot.gov.cn' && !hostname.endsWith('.mot.gov.cn'))) {
                 return item;
             }
 

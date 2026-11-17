@@ -1,4 +1,5 @@
 import { load } from 'cheerio';
+import pMap from 'p-map';
 
 import type { Route } from '@/types';
 import { ViewType } from '@/types';
@@ -6,6 +7,7 @@ import cache from '@/utils/cache';
 import logger from '@/utils/logger';
 import { parseRelativeDate } from '@/utils/parse-date';
 import playwright from '@/utils/playwright';
+import { isOnSite } from '@/utils/valid-host';
 
 export const route: Route = {
     path: '/user/:id/:type?',
@@ -80,17 +82,19 @@ async function handler(ctx) {
                 return {
                     title,
                     description: `<img src="${isVideo ? image.attr('data-src') : fullImage.href}"><br>${content}`,
-                    link: `${baseUrl}${coverLink}`,
+                    link: new URL(coverLink!, baseUrl).href,
                     guid: coverLink?.split('/', 3)?.[2],
                     pubDate: parseRelativeDate($item.find('.time .txt').text()),
                     slideOrVideo: $item.find('.corner').length,
                 };
             });
 
-        const items = await Promise.all(
-            list.map((item) =>
+        const items = await pMap(
+            list,
+            (item) =>
                 cache.tryGet(item.link, async () => {
-                    if (item.slideOrVideo) {
+                    // only follow links on the site itself
+                    if (item.slideOrVideo && isOnSite(item.link, 'picnob.com')) {
                         const page = await context.newPage();
                         await page.route('**/*', (route) => {
                             const request = route.request();
@@ -102,6 +106,7 @@ async function handler(ctx) {
                         });
                         logger.http(`Requesting ${item.link}`);
                         const html = await page.content();
+                        await page.close();
                         const $ = load(html);
 
                         const media = $('.slide-item').length
@@ -124,8 +129,8 @@ async function handler(ctx) {
                     }
 
                     return item;
-                })
-            )
+                }),
+            { concurrency: 3 }
         );
 
         return {

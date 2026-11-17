@@ -1,7 +1,7 @@
-import MarkdownIt from 'markdown-it';
 import pMap from 'p-map';
 
 import type { Route } from '@/types';
+import MarkdownIt from '@/utils/markdown-it';
 import ofetch from '@/utils/ofetch';
 import { parseDate } from '@/utils/parse-date';
 
@@ -43,7 +43,8 @@ async function handler(ctx) {
     if (!dailyLink) {
         throw new Error('The Luogu daily index does not contain an article or collection link. Check the discussion ID.');
     }
-    const dailyResponse = await ofetch(dailyLink, { responseType: 'text' });
+    // the link is taken from a user-written post
+    const dailyResponse = await ofetch(dailyLink, { responseType: 'text', publicOnly: true });
     const data = getPageData<{ articles?: { result: LuoguArticle[] }; article?: LuoguArticle }>(dailyResponse);
     const articles = data.articles?.result ?? (data.article ? [data.article] : undefined);
     if (!articles) {

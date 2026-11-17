@@ -128,7 +128,7 @@ jobs:
         timeout-minutes: 10
         steps:
             - name: AgentScan
-              uses: MatteoGabriele/agentscan-action@8112fb79b33fafb8506159df20129a34209ac410 # v2.5.0
+              uses: MatteoGabriele/agentscan-action@686cb0ad53e79b34a55cfe740b12724356a66c0e # v2.7.0
               with:
                   github-token: ${{ secrets.GITHUB_TOKEN }}
                   trusted-author-associations: 'collaborator,member,owner'
@@ -160,7 +160,7 @@ jobs:
                   lock-pr: false
                   max-changed-lines: 1000
                   max-description-length: 2000
-            - if: ${{ github.event.pull_request.head.repo.full_name != github.repository && !github.event.pull_request.maintainer_can_modify }}
+            - if: ${{ !cancelled() && github.event.pull_request.head.repo.full_name != github.repository && !github.event.pull_request.maintainer_can_modify }}
               run: |
                   gh pr close ${{ github.event.pull_request.number }} --comment "Thanks for the contribution. This PR was automatically closed because it matched multiple low-quality/spam [signals](https://github.com/peakoss/anti-slop)."
                   gh pr edit ${{ github.event.pull_request.number }} --add-label spam

@@ -2,6 +2,18 @@
 
 This is the durable, newest-first record of repository changes for agents maintaining this fork. Update it in the same commit as every repository change. Do not record secrets or private data.
 
+## 2026-11-18 — Sync upstream DIYgod/RSSHub (147 commits) & deploy to Vercel
+
+- **Summary:** Synchronized 147 commits from `DIYgod/RSSHub:master` (up to `a049efac8`), bringing in upstream route updates, fixes, and dependencies.
+- **Affected files:** Core route files, `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `internal_docs/changelog.md`.
+- **Upstream revision range:** `c86f1d537...a049efac8` (147 commits).
+- **Conflicts resolved & retained fork invariants:**
+  - Preserved `pnpm-workspace.yaml` overrides (`htmlparser2: '10.1.0'`, `'sanitize-html>htmlparser2': '10.1.0'`) and omitted broken global `dom-serializer` override to prevent runtime `ERR_REQUIRE_ESM`.
+  - Preserved `package.json` (`engines: { "node": "24.x" }` and `scripts.prepare: "exit 0"`).
+  - Preserved `vercel.json` (`installCommand: "pnpm install --ignore-scripts --no-frozen-lockfile"` and Patchright include-files).
+  - Preserved `.npmrc` (`ignore-scripts=true`) and `.github/workflows/sync-fork.yml` (`if: false`).
+- **Commit:** `sync: merge 147 upstream commits from DIYgod/RSSHub:master`.
+
 ## 2026-11-12 — Sync upstream DIYgod/RSSHub (74 commits) & deploy to Vercel
 
 - **Summary:** Synchronized 74 commits from `DIYgod/RSSHub:master` (up to `c86f1d537`), bringing in new and updated routes (`asus`, `groq`, `mistral`, `polymarket`, `aljazeera`, etc.) and dependency updates.

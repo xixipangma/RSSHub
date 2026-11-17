@@ -4,7 +4,9 @@ import type { Route } from '@/types';
 import cache from '@/utils/cache';
 import { parseDate } from '@/utils/parse-date';
 import { getPlaywrightPage } from '@/utils/playwright';
+import { fetchWithPage } from '@/utils/playwright-request';
 import timezone from '@/utils/timezone';
+import { isOnSite } from '@/utils/valid-host';
 
 export const route: Route = {
     path: '/grs',
@@ -28,7 +30,7 @@ export const route: Route = {
 const baseUrl = 'https://grs.bupt.edu.cn/tzgg.htm';
 
 async function handler() {
-    const { context, page, destroy } = await getPlaywrightPage(baseUrl, { noGoto: true, closeTimeout: 0 });
+    const { page, destroy } = await getPlaywrightPage(baseUrl, { noGoto: true, closeTimeout: 0 });
     try {
         await page.route('**/*', (route) => {
             const request = route.request();
@@ -60,10 +62,14 @@ async function handler() {
         const orderedList = list;
         const entries = orderedList;
         const out = await Promise.all(
-            entries.map((item) =>
-                cache.tryGet(item.link!, async () => {
-                    const response = await context.request.get(item.link!, { timeout: 12000 });
-                    const detail = await response.text();
+            entries.map((item) => {
+                // only follow links on the site itself
+                if (!isOnSite(item.link, 'bupt.edu.cn')) {
+                    return item;
+                }
+                return cache.tryGet(item.link!, async () => {
+                    const response = await fetchWithPage(page, item.link!, { timeout: 12000 });
+                    const detail = response.text;
                     const $ = load(detail);
                     $('.v_news_content style').remove();
                     return {
@@ -71,8 +77,8 @@ async function handler() {
                         description: $('.v_news_content').html(),
                         author: $('.bbt span:contains("作者：")').text().replace('作者：', ''),
                     };
-                })
-            )
+                });
+            })
         );
 
         return {

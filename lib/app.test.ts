@@ -1,9 +1,11 @@
+import { http, HttpResponse } from 'msw';
 import Parser from 'rss-parser';
 import undici from 'undici';
 import { describe, expect, it, vi } from 'vitest';
 
 import app from '@/app';
 import { config } from '@/config';
+import server from '@/setup.test';
 
 describe('index', () => {
     it('exports app entrypoint', () => {
@@ -31,7 +33,34 @@ describe('request-rewriter', () => {
     });
 });
 
+describe('route parameters', () => {
+    it('should keep a decoded path parameter inside its upstream path segment', async () => {
+        const requestedPaths: string[] = [];
+        server.use(
+            http.get('https://api.github.com/*', ({ request }) => {
+                requestedPaths.push(new URL(request.url).pathname);
+                return HttpResponse.json([]);
+            })
+        );
+
+        // Hono decodes %2F, so the route must re-encode :user before building the API URL
+        await app.request('/github/repos/..%2Fuser');
+
+        expect(requestedPaths).toEqual(['/users/..%2Fuser/repos']);
+    });
+});
+
 const parser = new Parser();
+const redirectStatuses = new Set([301, 302, 303, 307, 308]);
+
+const requestRoute = async (path: string, hop = 0): Promise<Response> => {
+    const response = await app.request(path);
+    const location = response.headers.get('location');
+    if (redirectStatuses.has(response.status) && location && hop < 5) {
+        return requestRoute(location, hop + 1);
+    }
+    return response;
+};
 
 process.env.ALLOW_USER_SUPPLY_UNSAFE_DOMAIN = 'true';
 
@@ -104,7 +133,7 @@ describe('routes', () => {
                 timeout: 60000,
             },
             async () => {
-                const response = await app.request(routes[route]);
+                const response = await requestRoute(routes[route]);
                 expect(response.status).toBe(200);
                 await checkRSS(response);
             }

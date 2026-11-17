@@ -2,7 +2,7 @@ import { html } from 'hono/html';
 import type { FC } from 'hono/jsx';
 
 import type { Data } from '@/types';
-import { getItemAttachments } from '@/utils/attachments';
+import { getItemAttachments, getMediaAttributes } from '@/utils/attachments';
 
 const Link: FC<Record<string, string | number | undefined>> = (props) =>
     html`<link${Object.entries(props)
@@ -10,7 +10,7 @@ const Link: FC<Record<string, string | number | undefined>> = (props) =>
         .map(([name, value]) => html` ${name}="${value}"`)} />`;
 
 const RSS: FC<{ data: Data }> = ({ data }) => (
-    <feed xmlns="http://www.w3.org/2005/Atom" xmlns:rsshub="http://rsshub.app/xml/schemas" xml:lang={data.language || 'en'}>
+    <feed xmlns="http://www.w3.org/2005/Atom" xmlns:rsshub="http://rsshub.app/xml/schemas" xmlns:media={data.item?.some((item) => item.media) ? 'http://search.yahoo.com/mrss/' : undefined} xml:lang={data.language || 'en'}>
         {html`<title>${data.title || 'RSSHub'}</title>`}
         <Link rel="alternate" href={data.link || 'https://docs.rsshub.app'} />
         <Link rel="self" href={data.atomlink} type="application/atom+xml" />
@@ -48,7 +48,7 @@ const RSS: FC<{ data: Data }> = ({ data }) => (
                 {item.media &&
                     Object.entries(item.media).map(([key, value]) => {
                         const Tag = `media:${key}`;
-                        return <Tag {...value} />;
+                        return <Tag {...getMediaAttributes(value)} />;
                     })}
                 {item.upvotes ? <rsshub:upvotes>{item.upvotes}</rsshub:upvotes> : ''}
                 {item.downvotes ? <rsshub:downvotes>{item.downvotes}</rsshub:downvotes> : ''}

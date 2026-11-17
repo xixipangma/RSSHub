@@ -11,7 +11,7 @@ export const handler = async (ctx) => {
     const limit = getRouteLimit(ctx, 15);
 
     const rootUrl = 'https://www.beijingprice.cn';
-    const currentUrl = new URL(category.endsWith('/') ? category : `${category}/`, rootUrl).href;
+    const currentUrl = `${rootUrl}/${category.endsWith('/') ? category : `${category}/`}`;
 
     const { data: response } = await got(currentUrl);
 
@@ -54,7 +54,9 @@ export const handler = async (ctx) => {
     items = await Promise.all(
         items.map((item) =>
             cache.tryGet(item.link!, async () => {
-                if (!item.link!.includes('www.beijingprice.cn') || item.link!.endsWith('.pdf')) {
+                const { protocol, hostname } = new URL(item.link!);
+                // only follow links on the site itself
+                if (!['http:', 'https:'].includes(protocol) || hostname !== 'www.beijingprice.cn' || item.link!.endsWith('.pdf')) {
                     return item;
                 }
 

@@ -5,8 +5,10 @@ import type { Route } from '@/types';
 import cache from '@/utils/cache';
 import { parseDate } from '@/utils/parse-date';
 import { getPlaywrightPage } from '@/utils/playwright';
+import { fetchWithPage } from '@/utils/playwright-request';
 import { getRouteLimit } from '@/utils/route-limit';
 import timezone from '@/utils/timezone';
+import { isOnSite } from '@/utils/valid-host';
 
 export const route: Route = {
     path: '/zszcgd/:category?',
@@ -58,13 +60,17 @@ async function handler(ctx: Context) {
         const limit = getRouteLimit(ctx);
         const selected = ordered.slice(0, limit);
         const items = await Promise.all(
-            selected.map((item) =>
-                cache.tryGet(item.link!, async () => {
-                    const detailResponse = await page.request.get(item.link!);
-                    if (!detailResponse.ok()) {
-                        throw new Error(`Failed to fetch CHSI policy article: HTTP ${detailResponse.status()}`);
+            selected.map((item) => {
+                // only follow links on the site itself
+                if (!isOnSite(item.link, 'chsi.com.cn')) {
+                    return item;
+                }
+                return cache.tryGet(item.link!, async () => {
+                    const detailResponse = await fetchWithPage(page, item.link!);
+                    if (!detailResponse.ok) {
+                        throw new Error(`Failed to fetch CHSI policy article: HTTP ${detailResponse.status}`);
                     }
-                    const detailHtml = await detailResponse.text();
+                    const detailHtml = detailResponse.text;
                     const content = load(detailHtml);
                     const author = content('.l_news_time').text().split('来源：', 2)[1]?.trim();
                     content('.cntt, .l_news_time').remove();
@@ -74,8 +80,8 @@ async function handler(ctx: Context) {
                         author,
                         description: content('.list').html(),
                     };
-                })
-            )
+                });
+            })
         );
 
         return {

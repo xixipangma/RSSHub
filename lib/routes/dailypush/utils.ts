@@ -1,6 +1,7 @@
 import type { Cheerio, CheerioAPI } from 'cheerio';
 import { load } from 'cheerio';
 import type { Element } from 'domhandler';
+import pMap from 'p-map';
 import type { BrowserContext } from 'patchright';
 
 import type { DataItem } from '@/types';
@@ -8,6 +9,7 @@ import cache from '@/utils/cache';
 import logger from '@/utils/logger';
 import { parseDate, parseRelativeDate } from '@/utils/parse-date';
 import type { Page } from '@/utils/playwright';
+import { isOnSite } from '@/utils/valid-host';
 
 export const BASE_URL = 'https://www.dailypush.dev';
 
@@ -223,7 +225,7 @@ function parseArticle(article: Cheerio<Element>, $: CheerioAPI, baseUrl: string)
 
     const footer = article.find('.flex.items-center.justify-between.gap-4.flex-wrap');
     const summaryLink = footer.find('a[href*="/article/"]').attr('href');
-    const dailyPushUrl = summaryLink ? `${baseUrl}${summaryLink}` : undefined;
+    const dailyPushUrl = summaryLink ? new URL(summaryLink, baseUrl).href : undefined;
 
     const pubDate = extractPubDate(article);
 
@@ -273,15 +275,20 @@ export function parseArticles($: CheerioAPI, baseUrl: string): ArticleItem[] {
 
 /**
  * Enhance items with full summaries from dailypush article pages.
- * Uses the provided context; opens a new tab per URL (document requests only). Caller must close the context.
+ * Uses the provided context; opens a new tab per URL (document requests only), a few at a time. Caller must close the context.
  */
 export async function enhanceItemsWithSummaries(context: BrowserContext, items: ArticleItem[]): Promise<DataItem[]> {
     const itemsWithUrl = items.filter((item) => item.dailyPushUrl !== undefined);
     const itemsWithoutUrl: DataItem[] = items.filter((item) => item.dailyPushUrl === undefined);
 
-    const enhancedItems = await Promise.all(
-        itemsWithUrl.map((item) =>
-            cache.tryGet(item.dailyPushUrl!, async () => {
+    const enhancedItems = await pMap(
+        itemsWithUrl,
+        (item) => {
+            // only follow links on the site itself
+            if (!isOnSite(item.dailyPushUrl, 'dailypush.dev')) {
+                return item;
+            }
+            return cache.tryGet(item.dailyPushUrl!, async () => {
                 try {
                     const html = await fetchPageHtml(context, item.dailyPushUrl!, 'p.font-ibm-plex-sans.leading-relaxed');
                     const $ = load(html);
@@ -294,8 +301,9 @@ export async function enhanceItemsWithSummaries(context: BrowserContext, items: 
                 }
 
                 return item;
-            })
-        )
+            });
+        },
+        { concurrency: 5 }
     );
 
     return [...enhancedItems, ...itemsWithoutUrl];
