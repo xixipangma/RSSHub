@@ -8,8 +8,8 @@ import cache from '@/utils/cache';
 import { fetchGoogleNews } from '@/utils/google-news';
 import { PRESETS } from '@/utils/header-generator';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
+import { parseDate } from '@/utils/time';
 
 const HEADING_TAGS = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'] as const;
 
@@ -312,17 +312,16 @@ async function handler(ctx) {
                           content('.title').remove();
                           content('.article-metadata').remove();
 
-                          item.title = content('meta[property="og:title"]').attr('content') || item.title;
+                          item.title = content('meta[property="og:title"]').attr('content');
                           const publishedTime = detailHtml.match(/"datePublished":"(.*?)","dateModified/)?.[1];
                           if (publishedTime) {
                               item.pubDate = parseDate(publishedTime);
                           }
-                          const authors = (detailHtml.match(/\{"@type":"Person","name":"(.*?)"\}/g) ?? []).flatMap((person) => {
-                              const name = person.match(/"name":"(.*?)"/)?.[1];
-                              return name ? [name] : [];
-                          });
-                          item.author = authors.join(', ') || item.author;
-                          item.description = content('article').html() || item.description;
+                          item.author = detailHtml
+                              .match(/\{"@type":"Person","name":"(.*?)"\}/g)
+                              ?.map((person) => person.match(/"name":"(.*?)"/)?.[1])
+                              .join(', ');
+                          item.description = content('article').html();
 
                           return item;
                       })

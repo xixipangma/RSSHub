@@ -5,7 +5,7 @@ import type { Data, DataItem, Language, Route } from '@/types';
 import { ViewType } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
+import { parseDate } from '@/utils/time';
 
 import { processContent } from './utils';
 
@@ -76,7 +76,7 @@ async function handler(ctx): Promise<Data> {
 
                 return {
                     description: processedDescription,
-                    pubDate: date ? parseDate(/^\d{4}-\d{2}-\d{2}$/.test(date) ? `${date}T00:00:00Z` : date) : undefined,
+                    pubDate: parseDate(`${date}T00:00:00Z`),
                 };
             });
             return { ...item, ...detail };

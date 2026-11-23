@@ -6,8 +6,8 @@ import InvalidParameterError from '@/errors/types/invalid-parameter';
 import type { Data, DataItem } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
+import { parseDate } from '@/utils/time';
 
 const BASE_URL = 'https://newsroom.arm.com';
 const API_BASE = `${BASE_URL}/wp-json/wp/v2`;
@@ -76,7 +76,7 @@ const renderBody = (post: WpPost, featured?: WpFeaturedMedia) => {
     const rawHtml = post.content?.rendered || post.excerpt?.rendered || '';
     const $ = load(rawHtml, null, false);
 
-    $('script, style').remove();
+    $('style').remove();
     $('img').each((_, el) => {
         const src = $(el).attr('src');
         if (src?.startsWith('http://')) {
@@ -128,16 +128,12 @@ const toDataItem = (post: WpPost): DataItem => {
         .map((author) => cleanText(author.name!))
         .filter((name) => name !== '' && name.toLowerCase() !== 'anonymous');
 
-    const categories = [
-        ...new Set(
-            (post._embedded?.['wp:term'] ?? [])
-                .filter((group): group is WpTerm[] => Array.isArray(group))
-                .flat()
-                .filter((term) => !term.code && typeof term.name === 'string')
-                .map((term) => cleanText(term.name!))
-                .filter(Boolean)
-        ),
-    ];
+    const categories = (post._embedded?.['wp:term'] ?? [])
+        .filter((group): group is WpTerm[] => Array.isArray(group))
+        .flat()
+        .filter((term) => !term.code && typeof term.name === 'string')
+        .map((term) => cleanText(term.name!))
+        .filter(Boolean);
 
     const featuredUrl = featured?.source_url?.replace(/^http:\/\//, 'https://');
 
@@ -207,7 +203,7 @@ export const fetchNewsroomData = async (
     const topicSlug = rawTopic && rawTopic !== 'all' ? rawTopic : undefined;
 
     const topic = topicSlug
-        ? ((await cache.tryGet(`arm:newsroom:topic:${topicSlug}`, async () => {
+        ? await cache.tryGet<WpTopic>(`arm:newsroom:topic:${topicSlug}`, async () => {
               const topics = await api<WpTopic[]>('topics', {
                   slug: topicSlug,
                   _fields: 'id,name,slug,link',
@@ -221,7 +217,7 @@ export const fetchNewsroomData = async (
                   slug: topics[0].slug,
                   link: topics[0].link,
               };
-          })) as WpTopic)
+          })
         : undefined;
 
     const limit = Math.min(Math.max(getRouteLimit(ctx, 20), 1), 100);

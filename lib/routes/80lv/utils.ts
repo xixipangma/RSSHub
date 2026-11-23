@@ -1,4 +1,5 @@
-import { type Cheerio, type CheerioAPI, load } from 'cheerio';
+import type { Cheerio, CheerioAPI } from 'cheerio';
+import { load } from 'cheerio';
 import type { Element } from 'domhandler';
 
 export const SITE_URL = 'https://80.lv';
@@ -36,13 +37,13 @@ export interface ImageUrls {
     src2x?: string;
 }
 
-export interface ArticleTag {
+interface ArticleTag {
     name?: string;
     is_category?: boolean;
     slug?: string;
 }
 
-export interface ArticlePerson {
+interface ArticlePerson {
     name?: string;
     pseudonym?: string;
     position?: string | null;
@@ -98,17 +99,17 @@ export interface ArticleBlock {
     content?: ArticleBlockContent | ArticleBlock[];
 }
 
-export interface ArticleMetaEntry {
+interface ArticleMetaEntry {
     content?: string;
 }
 
-export interface ArticleMeta {
+interface ArticleMeta {
     'article-article:published_time'?: ArticleMetaEntry;
     'article-article:modified_time'?: ArticleMetaEntry;
     'og-og:image'?: ArticleMetaEntry;
 }
 
-export interface ArticleAside {
+interface ArticleAside {
     author?: ArticlePerson;
     interviewer?: ArticlePerson;
     date?: string;
@@ -131,12 +132,11 @@ const SAFE_LINK_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
 const SAFE_HTTP_PROTOCOLS = new Set(['http:', 'https:']);
 
 const parseUrlWithProtocols = (raw: string | undefined, protocols: Set<string>): string | undefined => {
-    const trimmed = raw?.trim();
-    if (!trimmed) {
+    if (!raw) {
         return undefined;
     }
     try {
-        const parsed = new URL(trimmed, SITE_URL);
+        const parsed = new URL(raw, SITE_URL);
         return protocols.has(parsed.protocol) ? parsed.href : undefined;
     } catch {
         return undefined;
@@ -229,7 +229,7 @@ export const sanitizeRichHtml = (rawHtml?: string): string => {
         return '';
     }
     const $ = load(rawHtml, null, false);
-    $('script, style, ins, .ad-unit, .ecom-root, [data-pogo], [data-google-query-id]').remove();
+    $('script').remove();
 
     $('a').each((_, el) => {
         const $el = $(el);
@@ -251,5 +251,5 @@ export const sanitizeRichHtml = (rawHtml?: string): string => {
         }
     });
 
-    return $.html().trim();
+    return $.html();
 };

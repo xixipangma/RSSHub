@@ -1,12 +1,12 @@
-import { type Cheerio, load } from 'cheerio';
+import type { Cheerio } from 'cheerio';
+import { load } from 'cheerio';
 import pMap from 'p-map';
 
 import type { Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
 import { getPlaywrightPage } from '@/utils/playwright';
-import timezone from '@/utils/timezone';
+import { parseDate } from '@/utils/time';
 
 class ArticleBodyUnavailableError extends Error {}
 
@@ -34,19 +34,11 @@ export const route: Route = {
     url: 'gs.tongji.edu.cn/tzgg.htm',
 };
 async function getNoticeContent(link: string, getBrowserContent: (url: string) => Promise<string>) {
-    const response = await got(link);
-    let $ = load(response.body);
-    if (new URL(link).origin === 'https://mp.weixin.qq.com' && $('#js_verify').length) {
-        const source = await getBrowserContent(link);
-        $ = load(source);
-    }
-    const main = $('.v_news_content').first();
-    const content = main.length ? main : $('#vsb_content, #js_content').first();
-    if (!content.text().trim() && !content.find('img, video, iframe, a[href]').length) {
-        throw new ArticleBodyUnavailableError('The source notice does not expose a public article body.');
-    }
+    const source = new URL(link).origin === 'https://mp.weixin.qq.com' ? await getBrowserContent(link) : (await got(link)).body;
+    const $ = load(source);
+    const content = $('.v_news_content, #js_content').first();
     content.find('img[data-src]').each((_, element) => {
-        $(element).attr('src', $(element).attr('data-src')!);
+        $(element).attr('src', $(element).attr('data-src'));
     });
     const attachments = mapElements(
         content
@@ -70,7 +62,7 @@ async function handler() {
             const linkRaw = $(item).find('a').attr('href');
             const link = linkRaw!.startsWith('http') ? linkRaw : `${baseUrl}/${linkRaw}`;
             const pubDate = $(item).find('span').text();
-            return { title, link, pubDate: timezone(parseDate(pubDate, 'YYYY-MM-DD'), 8) };
+            return { title, link, pubDate: parseDate(pubDate, 'YYYY-MM-DD', 8) };
         });
     let browserPromise: ReturnType<typeof getPlaywrightPage> | undefined;
     const getBrowserContent = async (url: string) => {
@@ -78,7 +70,7 @@ async function handler() {
             noGoto: true,
             closeTimeout: 0,
             onBeforeLoad: async (_, context) => {
-                await context!.route('**/*', (route) => (['document', 'script', 'xhr', 'fetch', 'stylesheet'].includes(route.request().resourceType()) ? route.continue() : route.abort()));
+                await context!.route('**/*', (route) => (['document', 'script'].includes(route.request().resourceType()) ? route.continue() : route.abort()));
             },
         });
         const { context } = await browserPromise;

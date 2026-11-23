@@ -5,9 +5,7 @@ import pMap from 'p-map';
 import type { Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
-import { parseDateRange } from '@/utils/parse-date-range';
-import timezone from '@/utils/timezone';
+import { parseDate, parseDateRange } from '@/utils/time';
 
 import { namespace } from './namespace';
 
@@ -50,8 +48,8 @@ export const route: Route = {
                 let title = $a.text();
 
                 const $pEls = $item.find('.text .t2 .p');
-                let fullDuration = $pEls.eq(0).text().replaceAll('时间：', '').trim();
-                const location = $pEls.eq(1).text().replaceAll('地点：', '').trim();
+                let fullDuration = $pEls.eq(0).text().replaceAll('时间：', '');
+                const location = $pEls.eq(1).text().replaceAll('地点：', '');
 
                 // if title or duration ends with ..., need to fetch the detail page to get the full info
                 if (title.endsWith('...') || fullDuration.endsWith('...')) {
@@ -70,14 +68,14 @@ export const route: Route = {
                         title = detailTitle;
                     }
 
-                    const detailDuration = $detail('.universal2 .txt_box .infor .item .t').eq(0).text().trim();
+                    const detailDuration = $detail('.universal2 .txt_box .infor .item .t').eq(0).text();
                     if (detailDuration) {
                         fullDuration = detailDuration;
                     }
                 }
 
                 const { startDate, endDate } = parseDateRange(fullDuration);
-                const pubDate = startDate ? timezone(parseDate(startDate), 8) : undefined;
+                const pubDate = startDate ? parseDate(startDate, 8) : undefined;
 
                 const description = renderToString(
                     <div>

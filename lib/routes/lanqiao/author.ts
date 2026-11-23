@@ -4,7 +4,7 @@ import type { Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
 import MarkdownIt from '@/utils/markdown-it';
-import { parseDate } from '@/utils/parse-date';
+import { parseDate } from '@/utils/time';
 
 import utils from './utils';
 
@@ -76,7 +76,7 @@ async function handler(ctx) {
                 author: course.teacher.name,
                 category: course.tags,
                 pubDate: course.open_time ? parseDate(course.open_time) : undefined,
-                updated: course.updated_time ? parseDate(course.updated_time) : undefined,
+                updated: parseDate(course.updated_time),
                 link: `https://www.lanqiao.cn/courses/${course.id}/`,
             };
         },

@@ -6,7 +6,7 @@ import ConfigNotFoundError from '@/errors/types/config-not-found';
 import NotFoundError from '@/errors/types/not-found';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
+import { parseDate } from '@/utils/time';
 
 export const baseUrl = 'https://www.instagram.com';
 
@@ -136,7 +136,7 @@ export const getSessionPage = async (link: string, cookieJar: CookieJar) => {
     });
     await Promise.all(page.headers.getSetCookie().map((c) => cookieJar.setCookie(c, baseUrl)));
     const html: string = page._data;
-    const csrfToken = html.match(/"csrf_token":"([A-Za-z0-9]+)"/)?.[1];
+    const csrfToken = /"csrf_token":"([A-Za-z0-9]+)"/.exec(html)?.[1];
     if (csrfToken && !(await getCSRFTokenFromJar(cookieJar))) {
         await cookieJar.setCookie(`csrftoken=${csrfToken}; Path=/; Secure`, baseUrl);
     }
@@ -202,11 +202,12 @@ export const getUserFeed = (username: string, cookieJar: CookieJar, page: () => 
                 const details = await pMap(nodes, (node) => (node.media_type === 1 ? {} : getGuestMedia(node.pk, tokens, cookieJar)), { concurrency: 3 });
                 return nodes.map((node, index) => {
                     const date = node.accessibility_caption?.match(/ on ([A-Z][a-z]+ \d{1,2}, \d{4})\./)?.[1];
+                    const takenAt = date ? parseDate(date, 'MMMM D, YYYY') : undefined;
                     return {
                         ...node,
                         product_type: 'feed',
                         image_versions2: { candidates: [{ url: node.display_uri }] },
-                        taken_at: date && parseDate(date, 'MMMM D, YYYY').getTime() / 1000,
+                        taken_at: takenAt && takenAt.epochMilliseconds / 1000,
                         ...details[index],
                     };
                 });

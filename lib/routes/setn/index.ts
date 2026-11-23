@@ -4,9 +4,8 @@ import pMap from 'p-map';
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
-import timezone from '@/utils/timezone';
+import { parseDate } from '@/utils/time';
 import { isOnSite } from '@/utils/valid-host';
 
 const defaultRootUrl = 'https://www.setn.com';
@@ -85,7 +84,6 @@ export const route: Route = {
 };
 
 type NewsArticleLd = {
-    '@type'?: string;
     articleSection?: string;
     author?: Array<{ name?: string }> | { name?: string };
 };
@@ -111,7 +109,7 @@ async function handler(ctx) {
             const $item = $(item);
 
             const desktopTitle = $item.find('.title_pc a');
-            const a = desktopTitle.length ? desktopTitle.first() : $item.find('a').last();
+            const a = desktopTitle.length ? desktopTitle : $item.find('a').last();
             const link = a.attr('href')!.replaceAll(/(\?|&)utm_campaign=.*/g, '');
 
             return {
@@ -136,16 +134,8 @@ async function handler(ctx) {
 
                 const content = load(detailResponse.data);
 
-                const head = content('script[type="application/ld+json"]')
-                    .toArray()
-                    .map((script): NewsArticleLd | undefined => {
-                        try {
-                            return JSON.parse(content(script).text());
-                        } catch {
-                            return undefined;
-                        }
-                    })
-                    .find((data) => data?.['@type'] === 'NewsArticle');
+                const ldJson = content('script[type="application/ld+json"]:contains("NewsArticle")').text();
+                const head: NewsArticleLd | undefined = ldJson ? JSON.parse(ldJson) : undefined;
                 const authors = Array.isArray(head?.author) ? head.author : head?.author ? [head.author] : [];
 
                 content('#gad_setn_innity_oop_1x1').remove();
@@ -164,9 +154,9 @@ async function handler(ctx) {
                     .match(/\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}(?::\d{2})?/)?.[0];
                 const publishedTime = clock ?? content('meta[property="article:published_time"]').attr('content');
                 if (publishedTime) {
-                    item.pubDate = clock ? timezone(parseDate(clock, ['YYYY/MM/DD HH:mm:ss', 'YYYY/MM/DD HH:mm']), 8) : parseDate(publishedTime);
+                    item.pubDate = clock ? parseDate(clock, ['YYYY/MM/DD HH:mm:ss', 'YYYY/MM/DD HH:mm'], 8) : parseDate(publishedTime);
                 }
-                item.description = content('.article_content_area').first().html() ?? content('.content-p, article').first().html();
+                item.description = content('.article_content_area').html() ?? content('.content-p, article').html();
 
                 return item;
             }),

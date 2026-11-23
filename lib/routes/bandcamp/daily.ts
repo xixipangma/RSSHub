@@ -4,9 +4,9 @@ import pMap from 'p-map';
 import type { Route } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
 import parser from '@/utils/rss-parser';
+import { parseDate } from '@/utils/time';
 
 export const route: Route = {
     path: '/daily',
@@ -47,21 +47,19 @@ async function handler(ctx) {
             cache.tryGet(item.link!, async () => {
                 const articleText = await ofetch(item.link!);
                 const $ = load(articleText);
-                const $article = $('article').first();
-                const image = load(item.content ?? '')('img').attr('src') ?? $('meta[property="og:image"]').attr('content');
+                const $article = $('article');
+                const image = load(item.content ?? '')('img').attr('src');
                 const author = $article.find('article-credits a').first().text() || item.creator;
 
                 $article
-                    .find(
-                        'article-type, article-title, article-credits, article-playbutton, article-end, article-footer, .bamplayer-art, mplayer-artist, .player-wrapper, .mplayer-sidebar, aotd-ornament, img#feature-image, script, style'
-                    )
+                    .find('article-type, article-title, article-credits, article-playbutton, article-end, article-footer, .bamplayer-art, mplayer-artist, .player-wrapper, .mplayer-sidebar, aotd-ornament, img#feature-image')
                     .remove();
 
                 return {
                     title: item.title!,
                     link: item.link,
                     pubDate: item.isoDate ? parseDate(item.isoDate) : undefined,
-                    author: author || undefined,
+                    author,
                     category: item.categories,
                     image,
                     description: (image ? `<img src="${image}">` : '') + ($article.html() ?? ''),

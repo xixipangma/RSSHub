@@ -4,7 +4,6 @@ import pMap from 'p-map';
 import type { Data, DataItem } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
 import parser from '@/utils/rss-parser';
 
 const rebuildFigure = ($e, $) => {
@@ -56,7 +55,7 @@ export const getFeed = async (cfg: { link: string; title: string; rss: string })
         async (item) => ({
             title: item.title,
             author: item.creator,
-            pubDate: item.pubDate ? parseDate(item.pubDate) : undefined,
+            pubDate: item.pubDate,
             link: item.link,
             category: (item.categories as unknown[] | undefined)?.map((category) => (category as { _: string })._),
             description:

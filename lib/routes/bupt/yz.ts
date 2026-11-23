@@ -3,10 +3,9 @@ import type { Context } from 'hono';
 
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
-import { parseDate } from '@/utils/parse-date';
 import { getPlaywrightPage } from '@/utils/playwright';
 import { fetchWithPage } from '@/utils/playwright-request';
-import timezone from '@/utils/timezone';
+import { parseDate } from '@/utils/time';
 import { isOnSite } from '@/utils/valid-host';
 
 export const route: Route = {
@@ -56,7 +55,7 @@ async function handler(ctx: Context) {
     try {
         await page.route('**/*', (route) => {
             const request = route.request();
-            request.resourceType() === 'document' || request.resourceType() === 'script' ? route.continue() : route.abort();
+            return request.resourceType() === 'document' || request.resourceType() === 'script' ? route.continue() : route.abort();
         });
         await page.goto(college.url, {
             waitUntil: 'networkidle',
@@ -86,14 +85,12 @@ async function handler(ctx: Context) {
                 return {
                     title: $item.attr('title') ?? ($item.find('h3, font, .bt').text() || $item.text()).trim(),
                     link: new URL($item.attr('href')!, college.url).href,
-                    pubDate: date ? timezone(parseDate(date, 'YYYY-M-D'), 8) : undefined,
+                    pubDate: date ? parseDate(date, 'YYYY-M-D', 8) : undefined,
                 };
             })
             .filter((item) => item.pubDate);
-        const orderedList = list;
-        const entries = orderedList;
         const result = await Promise.all(
-            entries.map((item) => {
+            list.map((item) => {
                 // only follow links on the site itself
                 if (!isOnSite(item.link, 'bupt.edu.cn')) {
                     return item;

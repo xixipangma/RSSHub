@@ -1,11 +1,12 @@
 import { load } from 'cheerio';
+import { raw } from 'hono/html';
 import { renderToString } from 'hono/jsx/dom/server';
 import pMap from 'p-map';
 
 import type { Data, DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDateRange } from '@/utils/parse-date-range';
+import { parseDateRange } from '@/utils/time';
 
 import { namespace } from './namespace';
 
@@ -64,34 +65,11 @@ export const route: Route = {
 
                     const { startDate, endDate } = parseDateRange(fullDuration);
 
-                    const articleContent = $d('.zhengwen').html();
                     const description = renderToString(
                         <div>
                             <img src={item.imgUrl} />
                             <br />
-                            {articleContent ? (
-                                <div dangerouslySetInnerHTML={{ __html: articleContent }} />
-                            ) : (
-                                <>
-                                    <p>
-                                        <b>地点：</b>
-                                        {location || '参考详情'}
-                                    </p>
-                                    <p>
-                                        <b>开展：</b>
-                                        {startDate || '未定/常设'}
-                                    </p>
-                                    <p>
-                                        <b>闭展：</b>
-                                        {endDate || '未定/常设'}
-                                    </p>
-                                    {fullDuration && (
-                                        <p>
-                                            <small>原始展期：{fullDuration}</small>
-                                        </p>
-                                    )}
-                                </>
-                            )}
+                            <div>{raw($d('.zhengwen').html() ?? '')}</div>
                         </div>
                     );
 

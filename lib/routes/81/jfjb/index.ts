@@ -4,9 +4,8 @@ import InvalidParameterError from '@/errors/types/invalid-parameter';
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
-import timezone from '@/utils/timezone';
+import { parseDateStrict } from '@/utils/time';
 
 interface ArticleItem {
     id: number;
@@ -83,7 +82,7 @@ const fetchEditionData = (paperData: string) =>
     });
 
 const buildTitle = (xy: ArticleItem): string => {
-    let title = xy.title ?? '';
+    let title = xy.title;
     if (xy.guideTitle && /\S/.test(xy.guideTitle)) {
         title = title && /\S/.test(title) ? `${xy.guideTitle} ${title}` : xy.guideTitle;
     }
@@ -104,12 +103,12 @@ const extractAuthor = (xy: ArticleItem): string | undefined => {
             .replaceAll(/\s+/g, ' ')
             .trim();
     }
-    return author || undefined;
+    return author;
 };
 
 const matchPage = (page: PaperPage, req: string): boolean => {
     const trimmed = req.trim();
-    const pageNumMatch = trimmed.match(/^第?(\d{1,2})版?$/);
+    const pageNumMatch = /^第?(\d{1,2})版?$/.exec(trimmed);
     if (!pageNumMatch) {
         return false;
     }
@@ -127,7 +126,7 @@ const buildArticleSignature = (title: string, content?: string): string | undefi
     return text ? `${title}:::${text}` : undefined;
 };
 
-const formatArticleItem = (xy: ArticleItem, page: PaperPage, index: number, pubDate: ReturnType<typeof timezone>): DataItem => {
+const formatArticleItem = (xy: ArticleItem, page: PaperPage, index: number, pubDate: Temporal.Instant | undefined): DataItem => {
     const title = buildTitle(xy);
     const content = xy.content && /\S/.test(xy.content) ? xy.content : undefined;
     const author = extractAuthor(xy);
@@ -149,7 +148,7 @@ const parseArticlesFromPages = (pages: PaperPage[]): DataItem[] => {
     const items: DataItem[] = [];
 
     for (const page of pages) {
-        const pubDate = timezone(parseDate(page.paperData, 'YYYY-MM-DD', true), 8);
+        const pubDate = parseDateStrict(page.paperData, 'YYYY-MM-DD', 8);
         const articles = page.xyList ?? [];
         for (const [index, xy] of articles.entries()) {
             if (!xy.id && !xy.content && !xy.title) {
@@ -157,7 +156,7 @@ const parseArticlesFromPages = (pages: PaperPage[]): DataItem[] => {
             }
 
             const title = buildTitle(xy);
-            const isGenericOrMedia = xy.type === '图片' || /^(?:图片|短讯|快讯|广告)$/.test(xy.title?.trim() ?? '');
+            const isGenericOrMedia = xy.type === '图片' || /^(?:图片|短讯|快讯|广告)$/.test(xy.title.trim());
             const signature = isGenericOrMedia ? undefined : buildArticleSignature(title, xy.content);
 
             if (xy.id && seenIds.has(xy.id)) {
@@ -196,7 +195,7 @@ const resolveFeedMetadata = (targetPages: PaperPage[], requestedPage: string | u
     };
 };
 
-export const handler = async (ctx) => {
+const handler = async (ctx) => {
     const requestedPage = ctx.req.param('page');
     const limit = getRouteLimit(ctx, 100);
 

@@ -9,7 +9,8 @@ import ofetch from '@/utils/ofetch';
 import { getRouteLimit } from '@/utils/route-limit';
 
 import { renderArticleDescription, renderFallbackDescription } from './templates/description';
-import { BLOG_LIST_URL, DEFAULT_LIMIT, DETAIL_CONCURRENCY, type EntrySourceKind, extractBlogEntries, hydrateNextSuspenseSlots, MAX_LIMIT, normalizeContentContainer, type ParsedBlogEntry, SITE_URL } from './utils';
+import type { EntrySourceKind, ParsedBlogEntry } from './utils';
+import { BLOG_LIST_URL, DEFAULT_LIMIT, DETAIL_CONCURRENCY, extractBlogEntries, hydrateNextSuspenseSlots, MAX_LIMIT, normalizeContentContainer, SITE_URL } from './utils';
 
 const EXTERNAL_SCRAPE_KINDS = new Set<EntrySourceKind>(['github', 'huggingface', 'github-pages']);
 
@@ -17,11 +18,11 @@ const extractKimiDetail = (html: string, link: string) => {
     const $ = load(html);
     hydrateNextSuspenseSlots($);
 
-    const h1Text = $('main h1').first().text();
+    const h1Text = $('main h1').text();
     const title = h1Text || undefined;
 
-    const $section = $('main section.pb-20').first();
-    const $target = $section.length > 0 ? $section : $('main').first();
+    const $section = $('main section.pb-20');
+    const $target = $section.length > 0 ? $section : $('main');
     const content = normalizeContentContainer($target, $, link);
 
     return {
@@ -32,20 +33,20 @@ const extractKimiDetail = (html: string, link: string) => {
 
 const extractExternalDetail = (html: string, entry: ParsedBlogEntry) => {
     const $ = load(html);
-    const metaSummary = $('meta[name="description"]').attr('content')?.trim() || $('meta[property="og:description"]').attr('content')?.trim();
+    const metaSummary = $('meta[name="description"]').attr('content') || $('meta[property="og:description"]').attr('content');
 
     if (entry.kind === 'github') {
-        const content = normalizeContentContainer($('article.markdown-body').first(), $, entry.link);
+        const content = normalizeContentContainer($('article.markdown-body'), $, entry.link);
         return { ...content, metaSummary };
     }
 
     if (entry.kind === 'huggingface') {
-        const content = normalizeContentContainer($('main .prose').first(), $, entry.link);
+        const content = normalizeContentContainer($('main .prose'), $, entry.link);
         return { ...content, metaSummary };
     }
 
     if (entry.kind === 'github-pages') {
-        const content = normalizeContentContainer($('body').first(), $, entry.link);
+        const content = normalizeContentContainer($('body'), $, entry.link);
         return { ...content, metaSummary };
     }
 
@@ -95,11 +96,11 @@ const fetchExternalEntry = async (entry: ParsedBlogEntry): Promise<DataItem> => 
 
 const fetchBlogItem = async (entry: ParsedBlogEntry): Promise<DataItem> => {
     if (entry.kind === 'kimi') {
-        return (await cache.tryGet(`kimi:blog:${entry.link}`, () => fetchInternalEntry(entry))) as DataItem;
+        return await cache.tryGet<DataItem>(`kimi:blog:${entry.link}`, () => fetchInternalEntry(entry));
     }
     if (EXTERNAL_SCRAPE_KINDS.has(entry.kind)) {
         try {
-            return (await cache.tryGet(`kimi:blog:${entry.link}`, () => fetchExternalEntry(entry))) as DataItem;
+            return await cache.tryGet<DataItem>(`kimi:blog:${entry.link}`, () => fetchExternalEntry(entry));
         } catch {
             // Do not cache transient external fetch failures inside cache.tryGet
         }

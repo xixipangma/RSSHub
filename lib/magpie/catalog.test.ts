@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import type { Route } from '@/types';
+
 import { createCatalog, describe as describeEntry } from './catalog';
 
-const route = (fields: Record<string, unknown>) => ({ maintainers: [], handler: () => null, example: '', ...fields }) as never;
+const route = (fields: Partial<Route>) => ({ maintainers: [], handler: () => null, example: '', ...fields }) as never;
 
 const namespaces = {
     github: {
@@ -40,7 +42,7 @@ const namespaces = {
 };
 
 describe('magpie catalog', () => {
-    const catalog = createCatalog(namespaces as never);
+    const catalog = createCatalog(namespaces);
 
     it('indexes every route', () => {
         expect(catalog.entries).toHaveLength(4);

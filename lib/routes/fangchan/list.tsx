@@ -9,12 +9,11 @@ import type { Data, DataItem, Language, Route } from '@/types';
 import { ViewType } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
-import timezone from '@/utils/timezone';
+import { compareDates, parseDate } from '@/utils/time';
 import { isOnSite } from '@/utils/valid-host';
 
-export const handler = async (ctx: Context): Promise<Data> => {
+const handler = async (ctx: Context): Promise<Data> => {
     const { id = 'datalist' } = ctx.req.param();
     const limit = getRouteLimit(ctx, 30);
 
@@ -61,13 +60,10 @@ export const handler = async (ctx: Context): Promise<Data> => {
     });
 
     const sorted = ctx.req.query('sorted') !== 'false';
-    const allDated = items.every((item) => item.pubDate instanceof Date && Number.isFinite(item.pubDate.getTime()));
-    if (sorted && allDated) {
-        items = items.toSorted((a, b) => +new Date(b.pubDate!) - +new Date(a.pubDate!));
+    if (sorted) {
+        items = items.toSorted((a, b) => compareDates(b.pubDate, a.pubDate));
     }
-    if (!sorted || allDated) {
-        items = items.slice(0, limit);
-    }
+    items = items.slice(0, limit);
 
     items = await pMap(
         items,
@@ -82,7 +78,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
                 const $$: CheerioAPI = load(detailResponse);
 
                 const title: string = $$('div.summary-text h').text();
-                const description: string = $$('div.summary-text-p').html() ?? '';
+                const description = $$('div.summary-text-p').html();
                 const pubDateStr: string | undefined = $$('span.news-date')
                     .text()
                     .match(/\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/)?.[0];
@@ -101,7 +97,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
                 let processedItem: DataItem = {
                     title,
                     description,
-                    pubDate: pubDateStr ? timezone(parseDate(pubDateStr), 8) : undefined,
+                    pubDate: pubDateStr ? parseDate(pubDateStr, 8) : undefined,
                     category: categories,
                     author: authors?.length ? authors : undefined,
                     content: {

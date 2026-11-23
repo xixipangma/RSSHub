@@ -3,7 +3,12 @@ import { load } from 'cheerio';
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
+import { parseDate } from '@/utils/time';
+
+interface NewsArticle {
+    datePublished?: string;
+    dateModified?: string;
+}
 
 export const route: Route = {
     path: '/:channel',
@@ -53,7 +58,7 @@ async function handler(ctx) {
                 const res = await got(item.link);
                 const doc = load(res.data);
                 const dateScript = doc('script[type="application/ld+json"]').first().text();
-                let article: { '@graph'?: Array<{ '@type'?: string; datePublished?: string; dateModified?: string }>; datePublished?: string; dateModified?: string } = {};
+                let article: NewsArticle = {};
                 if (dateScript) {
                     try {
                         const metadata = JSON.parse(dateScript);
@@ -65,7 +70,7 @@ async function handler(ctx) {
                 // Exclude hidden print message
                 item.description = doc('div.article-page-body-content:not(.print-access-info)').html();
                 return {
-                    title: item.title!,
+                    title: item.title,
                     link: item.link,
                     description: item.description,
                     pubDate: article.datePublished ? parseDate(article.datePublished) : item.pubDate,

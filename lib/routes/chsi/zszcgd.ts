@@ -3,11 +3,10 @@ import type { Context } from 'hono';
 
 import type { Route } from '@/types';
 import cache from '@/utils/cache';
-import { parseDate } from '@/utils/parse-date';
 import { getPlaywrightPage } from '@/utils/playwright';
 import { fetchWithPage } from '@/utils/playwright-request';
 import { getRouteLimit } from '@/utils/route-limit';
-import timezone from '@/utils/timezone';
+import { compareDates, parseDate } from '@/utils/time';
 import { isOnSite } from '@/utils/valid-host';
 
 export const route: Route = {
@@ -34,7 +33,7 @@ async function handler(ctx: Context) {
     const { page, destroy } = await getPlaywrightPage(currentUrl, { noGoto: true, closeTimeout: 0 });
     try {
         await page.route('**/*', async (route) => {
-            await (['document', 'script', 'xhr', 'fetch', 'stylesheet'].includes(route.request().resourceType()) ? route.continue() : route.abort());
+            await (['document', 'script'].includes(route.request().resourceType()) ? route.continue() : route.abort());
         });
         await page.goto(currentUrl, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('.list ul li a');
@@ -51,12 +50,12 @@ async function handler(ctx: Context) {
 
                 return {
                     title: $item.text(),
-                    pubDate: timezone(parseDate($item.prev().text()), 8),
+                    pubDate: parseDate($item.prev().text(), 8),
                     link: new URL(link, currentUrl).href,
                 };
             });
 
-        const ordered = ctx.req.query('sorted') === 'false' ? list : list.toSorted((a, b) => b.pubDate.getTime() - a.pubDate.getTime());
+        const ordered = ctx.req.query('sorted') === 'false' ? list : list.toSorted((a, b) => compareDates(b.pubDate, a.pubDate));
         const limit = getRouteLimit(ctx);
         const selected = ordered.slice(0, limit);
         const items = await Promise.all(
@@ -65,14 +64,14 @@ async function handler(ctx: Context) {
                 if (!isOnSite(item.link, 'chsi.com.cn')) {
                     return item;
                 }
-                return cache.tryGet(item.link!, async () => {
-                    const detailResponse = await fetchWithPage(page, item.link!);
+                return cache.tryGet(item.link, async () => {
+                    const detailResponse = await fetchWithPage(page, item.link);
                     if (!detailResponse.ok) {
                         throw new Error(`Failed to fetch CHSI policy article: HTTP ${detailResponse.status}`);
                     }
                     const detailHtml = detailResponse.text;
                     const content = load(detailHtml);
-                    const author = content('.l_news_time').text().split('来源：', 2)[1]?.trim();
+                    const author = content('.l_news_time').text().split('来源：', 2)[1];
                     content('.cntt, .l_news_time').remove();
 
                     return {

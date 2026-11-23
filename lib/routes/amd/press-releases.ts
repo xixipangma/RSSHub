@@ -4,9 +4,9 @@ import NotFoundError from '@/errors/types/not-found';
 import type { Route } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
 import parser from '@/utils/rss-parser';
+import { parseDate } from '@/utils/time';
 
 import { fetchArticle, fetchChineseNews } from './utils';
 
@@ -58,7 +58,7 @@ export const route: Route = {
         if (language !== 'en') {
             throw new NotFoundError('Unsupported language. Use en or zh-CN.');
         }
-        const response = await ofetch(`${rootUrl}/rss`, { responseType: 'text' });
+        const response = await ofetch(`${rootUrl}/rss`);
         const feed = await parser.parseString(response);
 
         return {

@@ -6,8 +6,8 @@ import { renderToString } from 'hono/jsx/dom/server';
 import type { Data, DataItem, Language } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
+import { parseDate } from '@/utils/time';
 
 const rootUrl = 'https://www.jiemian.com';
 
@@ -119,8 +119,7 @@ export const fetchArticle = async (item) => {
             .toArray()
             .map((c) => content(c).text());
         // article: div.article-info, video: div.article-header__info
-        const publicationTime = content('div.article-info, div.article-header__info').find('span[data-article-publish-time]').first().prop('data-article-publish-time');
-        const pubDate = publicationTime && Number.isFinite(parseDate(publicationTime, 'X').getTime()) ? parseDate(publicationTime, 'X') : undefined;
+        const pubDate = parseDate(content('div.article-info, div.article-header__info').find('span[data-article-publish-time]').prop('data-article-publish-time'), 'X');
         const upvotes = content('span.opt-praise__count').text() ? Number(content('span.opt-praise__count').text()) : 0;
         const comments = content('span.opt-comment__count').text() ? Number(content('span.opt-comment__count').text()) : 0;
 

@@ -7,14 +7,13 @@ import type { Data, DataItem, Language, Route } from '@/types';
 import { ViewType } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
-import timezone from '@/utils/timezone';
+import { parseDate } from '@/utils/time';
 import { isOnSite } from '@/utils/valid-host';
 
 import { renderDescription } from './templates/description';
 
-export const handler = async (ctx: Context): Promise<Data> => {
+const handler = async (ctx: Context): Promise<Data> => {
     const { id = 'jinritan' } = ctx.req.param();
     const limit = getRouteLimit(ctx, 30);
 
@@ -79,8 +78,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
                 const $$: CheerioAPI = load(detailResponse);
 
                 const title: string = $$('div.detail_tit h1').text();
-                const contentHtml = $$('div#detail_content').html();
-                const description: string | undefined = contentHtml ? renderDescription({ description: contentHtml }) : (item.description ?? undefined);
+                const description: string | undefined = renderDescription({ description: $$('div#detail_content').html() || undefined });
                 const pubDateStr: string | undefined = $$('meta[property="og:release_date"]').attr('content');
                 const categories: string[] = $$('META[name="keywords"]').attr('content')?.split(/,/) ?? [];
                 const authorEls: Element[] = [...$$('META[name="author"]').toArray(), ...$$('META[name="source"]').toArray()];
@@ -99,7 +97,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
                 const processedItem: DataItem = {
                     title,
                     description,
-                    pubDate: pubDateStr ? timezone(parseDate(pubDateStr), 8) : item.pubDate,
+                    pubDate: pubDateStr ? parseDate(pubDateStr, 8) : item.pubDate,
                     category: categories,
                     author: authors,
                     content: {
@@ -108,7 +106,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
                     },
                     image,
                     banner: image,
-                    updated: upDatedStr ? timezone(parseDate(upDatedStr), 8) : item.updated,
+                    updated: upDatedStr ? parseDate(upDatedStr, 8) : item.updated,
                     language,
                 };
 

@@ -4,8 +4,7 @@ import pMap from 'p-map';
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
-import timezone from '@/utils/timezone';
+import { parseDateStrict } from '@/utils/time';
 import { isOnSite } from '@/utils/valid-host';
 
 export const route: Route = {
@@ -118,14 +117,11 @@ async function handler(ctx) {
 
                         const pubDate = detailResponse.data.match(/<span class="s-grey-3">(\d{4}-\d{2}-\d{2})<\/span>/);
                         if (pubDate) {
-                            const date = timezone(parseDate(pubDate[1], 'YYYY-MM-DD', true), 8);
-                            if (!Number.isNaN(date.getTime())) {
-                                detail.pubDate = date;
-                            }
+                            detail.pubDate = parseDateStrict(pubDate[1], 'YYYY-MM-DD', 8);
                         }
 
                         detail.description = content('article').html();
-                        detail.author = content('.m-atc .f-fl .s-grey-3').first().text().trim() || undefined;
+                        detail.author = content('.m-atc .f-fl .s-grey-3').first().text().trim();
                     } catch {
                         detail.description = '';
                     }

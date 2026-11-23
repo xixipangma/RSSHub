@@ -1,12 +1,8 @@
 import { load } from 'cheerio';
-import { FetchError } from 'ofetch';
 
-import { config } from '@/config';
 import type { Route } from '@/types';
-import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
 import { getPlaywrightPage } from '@/utils/playwright';
-import timezone from '@/utils/timezone';
+import { parseDate } from '@/utils/time';
 
 const host = 'https://www.nautiljon.com';
 export const route: Route = {
@@ -33,25 +29,16 @@ export const route: Route = {
     url: 'nautiljon.com',
 };
 
-const parseReleaseDate = (releaseDate: string) => parseDate(releaseDate, /^\d{4}-\d{2}-\d{2}$/.test(releaseDate) ? 'YYYY-MM-DD' : 'DD/MM/YYYY');
+const parseReleaseDate = (releaseDate: string) => parseDate(releaseDate, 'YYYY-MM-DD');
 
 const isVolumeReleased = (releaseDate: string) => {
     const releaseDateToCheck = parseReleaseDate(releaseDate);
-    const todayDate = new Date();
-    todayDate.setHours(0, 0, 0, 0);
+    const todayDate = Temporal.Now.zonedDateTimeISO('UTC').startOfDay().toInstant();
 
-    return releaseDateToCheck <= todayDate;
+    return releaseDateToCheck !== undefined && Temporal.Instant.compare(releaseDateToCheck, todayDate) <= 0;
 };
 
 async function getPlanningHTML(url: string) {
-    try {
-        return await ofetch(url, { headers: { 'User-Agent': config.trueUA } });
-    } catch (error) {
-        if (!(error instanceof FetchError) || error.response?.status !== 403) {
-            throw error;
-        }
-    }
-
     const { page, destroy } = await getPlaywrightPage(url, {
         closeTimeout: 0,
         noGoto: true,
@@ -76,23 +63,22 @@ async function handler() {
     const response = await getPlanningHTML(`${host}/planning/manga/`);
 
     const $ = load(response);
-    const list = $('table#planning tbody tr')
+    const list = $('table#planning tbody tr[data-planning-date]')
         .toArray()
-        .filter((item) => isVolumeReleased($(item).attr('data-planning-date') ?? $(item).find('td').first().text()));
+        .filter((item) => isVolumeReleased($(item).attr('data-planning-date')!));
     const items = list.map((item) => {
         const $item = $(item);
-        const releaseDate = $item.attr('data-planning-date') ?? $item.find('td').first().text();
+        const releaseDate = $item.attr('data-planning-date')!;
 
-        const a = $item.find('td.p_titre a').first();
-        const img = $item.find('a[data-preview-image], a[im]').first();
-        const image = img.attr('data-preview-image') ?? img.attr('im') ?? $item.find('img').first().attr('src');
+        const a = $item.find('td.p_titre > a');
+        const image = $item.find('a[data-preview-image]').attr('data-preview-image')!;
 
         return {
             title: a.text(),
             link: new URL(a.attr('href')!, host).href,
-            pubDate: timezone(parseReleaseDate(releaseDate), 0),
-            image: image ? new URL(image, host).href : undefined,
-            category: $item.find('td.p_titre div.fl').first().text(),
+            pubDate: parseReleaseDate(releaseDate),
+            image: new URL(image, host).href,
+            category: $item.find('td.p_titre div.fl').text(),
         };
     });
 

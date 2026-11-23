@@ -5,16 +5,14 @@ import pMap from 'p-map';
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
-import { parseDateRange } from '@/utils/parse-date-range';
-import timezone from '@/utils/timezone';
+import { parseDate, parseDateRange } from '@/utils/time';
 
 import { namespace } from './namespace';
 
 const getExhibitionContent = async (link: string) => {
     const response = await ofetch(link);
     const $ = load(response);
-    return { description: $('.exhUs_r').first().html() ?? '' };
+    return { description: $('.exhUs_r').html() ?? '' };
 };
 
 export const route: Route = {
@@ -60,7 +58,7 @@ export const route: Route = {
                     .replace(/^展期：/, '');
 
                 const { startDate, endDate } = parseDateRange(fullDuration);
-                const pubDate = startDate ? timezone(parseDate(startDate), 8) : undefined;
+                const pubDate = startDate ? parseDate(startDate, 8) : undefined;
 
                 const description = renderToString(
                     <div>
@@ -104,7 +102,7 @@ export const route: Route = {
             title: `${museumName} - 临时展览`,
             link: listUrl,
             language: 'zh-CN',
-            item: await pMap(items, async (item) => ({ ...item, description: (item.description ?? '') + (await cache.tryGet(item.link!, () => getExhibitionContent(item.link!))).description }), { concurrency: 3 }),
+            item: await pMap(items, async (item) => ({ ...item, description: item.description + (await cache.tryGet(item.link!, () => getExhibitionContent(item.link!))).description }), { concurrency: 3 }),
         };
     },
 };

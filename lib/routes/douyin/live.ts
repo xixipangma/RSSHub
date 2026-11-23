@@ -1,11 +1,15 @@
+import { load } from 'cheerio';
+
 import { config } from '@/config';
 import InvalidParameterError from '@/errors/types/invalid-parameter';
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import logger from '@/utils/logger';
 import ofetch from '@/utils/ofetch';
-import { getPlaywrightPage, type Page } from '@/utils/playwright';
+import type { Page } from '@/utils/playwright';
+import { getPlaywrightPage } from '@/utils/playwright';
 import { queryToBoolean } from '@/utils/readable-social';
+import { formatDate } from '@/utils/time';
 
 import { getOriginAvatar } from './utils';
 
@@ -35,7 +39,7 @@ interface RoomData {
 interface StreamPayload {
     state?: {
         roomStore?: {
-            roomInfo?: { room?: DouyinRoom; anchor?: DouyinUser };
+            roomInfo?: { room?: DouyinRoom; anchor: DouyinUser };
         };
     };
 }
@@ -55,35 +59,27 @@ function getRoomData(room?: DouyinRoom, owner?: DouyinUser): RoomData | undefine
 }
 
 function parseRoomScript(script: string) {
-    const match = script.match(/^\s*self\.__pace_f\.push\((\[.*\])\);?\s*$/s);
+    const match = /^\s*self\.__pace_f\.push\((\[.*\])\);?\s*$/s.exec(script);
     if (!match) {
         return;
     }
     try {
         // Decode the streamed JSON data without executing the website's scripts.
-        const chunk: unknown = JSON.parse(match[1]);
-        if (!Array.isArray(chunk) || typeof chunk[1] !== 'string') {
-            return;
+        const chunk: [number, string] = JSON.parse(match[1]);
+        const value: unknown[] = JSON.parse(chunk[1].slice(chunk[1].indexOf(':') + 1));
+        const info = (value[3] as StreamPayload | undefined)?.state?.roomStore?.roomInfo;
+        if (info?.room) {
+            return { room: info.room, owner: info.anchor };
         }
-        const separator = chunk[1].indexOf(':');
-        if (separator === -1) {
-            return;
-        }
-        const value: unknown = JSON.parse(chunk[1].slice(separator + 1));
-        if (!Array.isArray(value)) {
-            return;
-        }
-        const payload = value[3] as StreamPayload | undefined;
-        const info = payload?.state?.roomStore?.roomInfo;
-        return getRoomData(info?.room, info?.anchor ?? info?.room?.owner);
     } catch {
         return;
     }
 }
 
 function parseRoomHtml(html: string) {
-    for (const [, script] of html.matchAll(/<script[^>]*>([\s\S]*?)<\/script\b[^>]*>/gi)) {
-        const data = parseRoomScript(script);
+    const $ = load(html);
+    for (const script of $('script:contains("roomStore")').toArray()) {
+        const data = parseRoomScript($(script).text());
         if (data) {
             return data;
         }
@@ -142,7 +138,7 @@ async function getFirstSeen(roomId: string) {
     if (existing) {
         return await existing;
     }
-    const request = cache.tryGet(`douyin:live:first-seen:${roomId}`, () => Promise.resolve(Date.now()), 30 * 24 * 60 * 60, false);
+    const request = cache.tryGet(`douyin:live:first-seen:${roomId}`, () => Promise.resolve(Temporal.Now.instant().epochMilliseconds), 30 * 24 * 60 * 60, false);
     firstSeenRequests.set(roomId, request);
     try {
         return await request;
@@ -150,8 +146,6 @@ async function getFirstSeen(roomId: string) {
         firstSeenRequests.delete(roomId);
     }
 }
-
-const formatFirstSeen = (timestamp: number) => new Date(timestamp + 8 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
 
 export const route: Route = {
     path: '/live/:rid/:showTime?',
@@ -193,7 +187,7 @@ async function handler(ctx) {
         `douyin:live:room:${rid}`,
         async () => {
             try {
-                const html = await ofetch(pageUrl, { responseType: 'text', retry: 0, timeout: config.requestTimeout });
+                const html = await ofetch(pageUrl, { retry: 0, timeout: config.requestTimeout });
                 const data = parseRoomHtml(html);
                 if (data) {
                     return data;
@@ -211,7 +205,7 @@ async function handler(ctx) {
     const userAvatar = roomOwner.avatar_thumb?.url_list[0];
     const showTime = queryToBoolean(ctx.req.param('showTime')) ?? false;
     const firstSeen = await getFirstSeen(roomInfo.id_str);
-    const suffix = showTime ? `（本场首次检测：${formatFirstSeen(firstSeen)} UTC+8）` : '';
+    const suffix = showTime ? `（本场首次检测：${formatDate(Temporal.Instant.fromEpochMilliseconds(firstSeen), 'YYYY-MM-DD HH:mm:ss', 8)} UTC+8）` : '';
 
     const items: DataItem[] = [];
     if (roomInfo.id_str) {

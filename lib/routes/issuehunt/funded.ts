@@ -1,7 +1,7 @@
 import type { Route } from '@/types';
 import got from '@/utils/got';
 import MarkdownIt from '@/utils/markdown-it';
-import { parseDate } from '@/utils/parse-date';
+import { parseDate } from '@/utils/time';
 
 export const route: Route = {
     path: '/funded/:username/:repo',
@@ -43,7 +43,7 @@ async function handler(ctx) {
         item: issues.map((item) => ({
             title: item.title,
             description: md.render(item.body),
-            pubDate: item.fundedAt ? parseDate(item.fundedAt) : undefined,
+            pubDate: parseDate(item.fundedAt),
             link: `https://issuehunt.io/r/${username}/${repo}/issues/${item.number}`,
             author: item.userName,
         })),

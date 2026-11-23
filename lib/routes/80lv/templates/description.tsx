@@ -3,7 +3,10 @@ import { raw } from 'hono/html';
 import type { Child } from 'hono/jsx';
 import { renderToString } from 'hono/jsx/dom/server';
 
-import { type ArticleBlock, type ArticleBlockContent, type ArticleDetail, type ArticleListItem, extractPlainText, isHostnameOrSubdomain, pickImageUrl, resolveHttpUrl, resolveSafeUrl, sanitizeRichHtml } from '../utils';
+import { renderYoutube } from '@/routes/youtube/utils';
+
+import type { ArticleBlock, ArticleBlockContent, ArticleDetail, ArticleListItem } from '../utils';
+import { extractPlainText, isHostnameOrSubdomain, pickImageUrl, resolveHttpUrl, resolveSafeUrl, sanitizeRichHtml } from '../utils';
 
 const DIRECT_VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.m4v'];
 
@@ -105,7 +108,7 @@ const renderCodeBlock = (content: ArticleBlockContent): Child => {
     }
     return (
         <pre>
-            <code class={content.language ? `language-${content.language}` : undefined}>{content.code}</code>
+            <code className={content.language ? `language-${content.language}` : undefined}>{content.code}</code>
         </pre>
     );
 };
@@ -135,7 +138,7 @@ const renderVideoBlock = (content: ArticleBlockContent): Child => {
         }
         const ytId = extractYouTubeId(parsed);
         if (ytId) {
-            return <iframe src={`https://www.youtube.com/embed/${ytId}`} allowfullscreen />;
+            return raw(renderYoutube(true, ytId));
         }
         const vimeoEmbedUrl = resolveVimeoEmbedUrl(parsed);
         if (vimeoEmbedUrl) {
@@ -180,7 +183,7 @@ const renderSocialLinkQuote = (rawUrl: string | undefined, className: string): C
         return null;
     }
     return (
-        <blockquote class={className}>
+        <blockquote className={className}>
             <a href={safeUrl}>{safeUrl}</a>
         </blockquote>
     );
@@ -191,13 +194,13 @@ const renderInstagramBlockquote = (content: ArticleBlockContent): Child => {
         return null;
     }
     const $ = load(content.value, null, false);
-    const permalink = resolveHttpUrl($('[data-instgrm-permalink]').attr('data-instgrm-permalink') || $('a[href]').first().attr('href'));
+    const permalink = resolveHttpUrl($('[data-instgrm-permalink]').attr('data-instgrm-permalink') || $('a[href]').attr('href'));
     if (!permalink) {
         return null;
     }
     const text = $('a[href]').first().text().trim() || permalink;
     return (
-        <blockquote class="instagram-media">
+        <blockquote className="instagram-media">
             <a href={permalink}>{text}</a>
         </blockquote>
     );

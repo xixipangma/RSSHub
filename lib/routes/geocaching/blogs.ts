@@ -1,7 +1,7 @@
 import type { Route } from '@/types';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
+import { parseDate } from '@/utils/time';
 
 export const route: Route = {
     path: '/blogs/:language?',
@@ -75,7 +75,7 @@ async function handler(ctx) {
 
     const { data: response } = await got(`${baseUrl}/blog/wp-json/wp/v2/posts`, { searchParams });
     const items = response.map((item) => {
-        const media = item._embedded['wp:featuredmedia']?.[0];
+        const media = item._embedded['wp:featuredmedia'][0];
         const mediaDetails = media?.media_details;
         const mediaSize = mediaDetails?.sizes.large || mediaDetails?.sizes.full;
         return {

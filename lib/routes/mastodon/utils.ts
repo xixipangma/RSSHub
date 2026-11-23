@@ -4,7 +4,7 @@ import { config } from '@/config';
 import ConfigNotFoundError from '@/errors/types/config-not-found';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
+import { parseDate } from '@/utils/time';
 
 const allowSiteList = ['mastodon.social', 'pawoo.net', 'fosstodon.org', config.mastodon.apiHost].filter(Boolean);
 
@@ -17,7 +17,7 @@ const apiHeaders = (site) => {
 const mediaParse = (media_attachments) =>
     media_attachments
         .map((item) => {
-            const selectedUrl = escapeUTF8(item.remote_url ?? item.url ?? '');
+            const selectedUrl = escapeUTF8(item.remote_url ?? item.url);
             const description = escapeUTF8(item.description ?? '');
             switch (item.type) {
                 case 'gifv':

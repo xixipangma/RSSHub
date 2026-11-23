@@ -1,19 +1,13 @@
 import { load } from 'cheerio';
-import dayjs from 'dayjs';
-import timezone from 'dayjs/plugin/timezone.js';
-import utc from 'dayjs/plugin/utc.js';
 import pMap from 'p-map';
 
 import InvalidParameterError from '@/errors/types/invalid-parameter';
 import type { Route } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
 import parser from '@/utils/rss-parser';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
+import { parseDate, parseDateStrict } from '@/utils/time';
 
 const baseUrl = 'https://nltimes.nl';
 const categories = {
@@ -34,11 +28,7 @@ const parsePublicationDate = (value?: string) => {
         return;
     }
     const text = value.trim().replace(/^\w+, /, '');
-    const format = 'D MMMM YYYY - HH:mm';
-    if (Number.isFinite(parseDate(text, format, 'en', true).getTime())) {
-        return dayjs.tz(text, format, 'Europe/Amsterdam').toDate();
-    }
-    return parseDate(value);
+    return parseDateStrict(text, 'D MMMM YYYY - HH:mm', 'Europe/Amsterdam') ?? parseDate(value);
 };
 
 const fetchArticle = (link: string) =>
@@ -124,7 +114,7 @@ async function handler(ctx) {
             if (url.origin !== baseUrl) {
                 return [];
             }
-            const date = card.find('time').first().attr('datetime') ?? card.find('.news-card__date').first().text();
+            const date = card.find('time').attr('datetime') ?? card.find('.news-card__date').first().text();
             return {
                 title: heading.text(),
                 link: url.href,

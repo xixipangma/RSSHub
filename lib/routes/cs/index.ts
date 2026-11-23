@@ -4,9 +4,8 @@ import iconv from 'iconv-lite';
 import type { DataItem, Language, Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
-import timezone from '@/utils/timezone';
+import { compareDates, parseDate } from '@/utils/time';
 
 import { currentCategoryPaths, getCurrentItems, isSiteLink } from './utils';
 
@@ -259,14 +258,14 @@ async function handler(ctx) {
                   const $item = $(item);
 
                   return {
-                      title: $item.find('h3').text().trim(),
+                      title: $item.find('h3').text(),
                       link: new URL($item.prop('href')!, currentUrl).href,
-                      pubDate: timezone(parseDate($item.find('em').text()), 8),
+                      pubDate: parseDate($item.find('em').text(), 8),
                   };
               });
 
     if (ctx.req.query('sorted') !== 'false' && (usesCurrentData || ctx.req.query('limit'))) {
-        items = items.toSorted((a, b) => Number(b.pubDate) - Number(a.pubDate));
+        items = items.toSorted((a, b) => compareDates(b.pubDate, a.pubDate));
     }
     items = items.slice(0, limit);
 
@@ -285,7 +284,7 @@ async function handler(ctx) {
 
                     const detailTitle = content('article.cont_article header h1').text().trim();
                     item.title = detailTitle || item.title;
-                    item.description = content('article.cont_article section').html() || item.description;
+                    item.description = content('article.cont_article section').html();
                     item.author = content('div.artc_info em').text().trim() || item.author;
                     const detailCategories = content('div.artc_route div a')
                         .slice(1)
@@ -294,10 +293,9 @@ async function handler(ctx) {
                     if (detailCategories.length) {
                         item.category = detailCategories;
                     }
-                    const publishedAt = content('.time').prop('datetime') || content('.artc_info time').prop('datetime') || content('.artc_info time').text().trim();
+                    const publishedAt = content('.artc_info time').text().trim();
                     if (publishedAt) {
-                        const parsedDate = parseDate(publishedAt);
-                        item.pubDate = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(publishedAt) ? parsedDate : timezone(parsedDate, 8);
+                        item.pubDate = parseDate(publishedAt, 8);
                     }
                 } catch {
                     // no-empty
@@ -309,7 +307,7 @@ async function handler(ctx) {
     );
 
     const title = $('title').text();
-    const imageSrc = $('div.logo_cs a img').prop('src') || $('link[rel="shortcut icon"], link[rel="icon"]').first().attr('href');
+    const imageSrc = $('div.logo_cs a img').prop('src') || $('link[rel="shortcut icon"], link[rel="icon"]').attr('href');
     const image = imageSrc ? new URL(imageSrc, currentUrl).href : undefined;
     const icon = new URL('favicon.ico', rootUrl).href;
 

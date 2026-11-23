@@ -4,10 +4,10 @@ import pMap from 'p-map';
 import InvalidParameterError from '@/errors/types/invalid-parameter';
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
-import { parseDate } from '@/utils/parse-date';
-import { getPlaywrightPage, type Page } from '@/utils/playwright';
+import type { Page } from '@/utils/playwright';
+import { getPlaywrightPage } from '@/utils/playwright';
 import { getRouteLimit } from '@/utils/route-limit';
-import timezone from '@/utils/timezone';
+import { parseDate } from '@/utils/time';
 import { isOnSite } from '@/utils/valid-host';
 
 const baseUrl = 'https://www.ebrun.com';
@@ -37,21 +37,12 @@ function getItem(item: DataItem, page: Page) {
         await page.waitForSelector('.post-text-title');
         const response = await page.content();
         const $ = load(response);
-        const content = $('.post-text');
-        content.find('script, style, button, .ad-content').remove();
-        content.find('img[data-src]').each((_, element) => {
-            const image = $(element);
-            image.attr('src', new URL(image.attr('data-src')!, item.link).href);
-        });
-        item.description = content.html() || '';
-        const date = $('.post-header .date-time').text();
-        if (date) {
-            item.pubDate = timezone(parseDate(date, 'YYYY-MM-DD HH:mm'), 8);
-        }
-        const author = $('.post-header .source .info span').first().text();
-        if (author) {
-            item.author = author.replace(/^作者[：:]\s*/, '');
-        }
+        item.description = $('.post-text').html();
+        item.pubDate = parseDate($('.post-header .date-time').text(), 'YYYY-MM-DD HH:mm', 8);
+        item.author = $('.post-header .source .info span')
+            .first()
+            .text()
+            .replace(/^作者[：:]\s*/, '');
         item.category = $('.article-label a')
             .toArray()
             .map((element) => $(element).text());

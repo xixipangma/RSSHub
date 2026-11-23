@@ -6,16 +6,15 @@ import type { BrowserContext } from 'patchright';
 import type { Data, DataItem, Route } from '@/types';
 import { ViewType } from '@/types';
 import cache from '@/utils/cache';
-import { parseDate } from '@/utils/parse-date';
 import { getPlaywrightPage } from '@/utils/playwright';
+import { getRouteLimit } from '@/utils/route-limit';
+import { parseDate } from '@/utils/time';
 import { isOnSite } from '@/utils/valid-host';
 
 const readContentPage = async (context: BrowserContext, url: string): Promise<string> => {
     const page = await context.newPage();
     try {
-        await page.route('**/*', (route) => {
-            route.request().resourceType() === 'document' ? route.continue() : route.abort();
-        });
+        await page.route('**/*', (route) => (route.request().resourceType() === 'document' ? route.continue() : route.abort()));
         await page.goto(url, { waitUntil: 'domcontentloaded' });
         return await page.evaluate(() => document.documentElement.getHTML());
     } finally {
@@ -51,8 +50,7 @@ export const route: Route = {
 };
 
 async function handler(ctx: Context) {
-    const requestedLimit = Number(ctx.req.query('limit'));
-    const limit = Number.isSafeInteger(requestedLimit) && requestedLimit > 0 ? requestedLimit : 20;
+    const limit = getRouteLimit(ctx, 20);
     const rootUrl = 'https://www.perplexity.ai/hub/blog';
 
     const { page, destroy, context } = await getPlaywrightPage(rootUrl, {
@@ -60,7 +58,7 @@ async function handler(ctx: Context) {
         onBeforeLoad: async (page) => {
             await page.route('**/*', (route) => {
                 const request = route.request();
-                request.resourceType() === 'document' ? route.continue() : route.abort();
+                return request.resourceType() === 'document' ? route.continue() : route.abort();
             });
         },
     });
@@ -137,7 +135,7 @@ async function handler(ctx: Context) {
 
                     const $content = load(contentHtml);
 
-                    let pubDate: string | number | Date | undefined = item.pubDate ?? undefined;
+                    let pubDate: string | number | Temporal.Instant | undefined = item.pubDate ?? undefined;
                     if (!pubDate) {
                         const timeEl = $content('time[datetime]').first();
                         if (timeEl.length) {

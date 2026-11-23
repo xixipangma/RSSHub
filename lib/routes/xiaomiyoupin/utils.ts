@@ -1,7 +1,3 @@
-import dayjs from 'dayjs';
-import localizedFormat from 'dayjs/plugin/localizedFormat.js';
-import timezone from 'dayjs/plugin/timezone.js';
-import utc from 'dayjs/plugin/utc.js';
 import type { z } from 'zod';
 
 import NotFoundError from '@/errors/types/not-found';
@@ -9,7 +5,7 @@ import type { Crowdfunding } from '@/routes/mi/templates/crowdfunding';
 import type { NewProduct } from '@/routes/mi/templates/newproduct';
 import { dedupeByKey } from '@/routes/mi/utils';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
+import { formatDate } from '@/utils/time';
 
 import type { CommonListItem, CrowdfundingDetailItem, CrowdfundingListItem, NewProductDetailItem, NewProductListItem, VenueQuery } from './types';
 import {
@@ -25,12 +21,6 @@ import {
 } from './types';
 
 // Common
-
-dayjs.extend(localizedFormat);
-dayjs.extend(timezone);
-dayjs.extend(utc);
-
-const formatDate = (date: Date): string => dayjs(date).tz('Asia/Shanghai').locale('zh-cn').format('ll');
 
 /**
  * Check whether a list item is a common list item, which nests the goods data under `value.goods`.
@@ -192,25 +182,28 @@ const toSellPointList = (goodsInfo: CrowdfundingDetailItem['goodsInfo']): string
     [goodsInfo.firstSellPoint, goodsInfo.secondSellPoint, goodsInfo.thirdSellPoint].map((point) => point.trim()).filter((point): point is string => Boolean(point));
 
 const toSupportList = (detailItem: CrowdfundingDetailItem): Crowdfunding['supportList'] => {
-    const supportList = detailItem.goodsInfo.pids.map((pid) => {
-        const product = detailItem.productInfo[pid];
-        return {
-            image: product.img,
-            name: product.attributeValues.join(' '),
-            price: String((product.onHandPrice?.at(0)?.price ?? product.price) / 100),
-            description: product.name,
-        };
-    });
     const groupBuyGood = detailItem.oneYuanSupport.groupBuyInfo?.good;
-    if (groupBuyGood) {
-        supportList.push({
-            image: groupBuyGood.img,
-            name: '1元支持',
-            price: String(groupBuyGood.groupbuy_price / 100),
-            description: groupBuyGood.groupbuy_summary,
-        });
-    }
-    return supportList;
+    return [
+        ...detailItem.goodsInfo.pids.map((pid) => {
+            const product = detailItem.productInfo[pid];
+            return {
+                image: product.img,
+                name: product.attributeValues.join(' '),
+                price: String((product.onHandPrice?.at(0)?.price ?? product.price) / 100),
+                description: product.name,
+            };
+        }),
+        ...(groupBuyGood
+            ? [
+                  {
+                      image: groupBuyGood.img,
+                      name: '1元支持',
+                      price: String(groupBuyGood.groupbuy_price / 100),
+                      description: groupBuyGood.groupbuy_summary,
+                  },
+              ]
+            : []),
+    ];
 };
 
 const toGoodsList = (detailItem: NewProductDetailItem): NewProduct['goodsList'] =>
@@ -236,9 +229,9 @@ const toCrowdfunding = (listItem: CrowdfundingListItem, detailItem: Crowdfunding
     sellPointList: toSellPointList(detailItem.goodsInfo),
     price: String((detailItem.priceInfo.priceInfo.onHandPrice?.price ?? detailItem.priceInfo.priceInfo.marketPrice) / 100),
     marketPrice: String(detailItem.priceInfo.priceInfo.marketPrice / 100),
-    startTime: parseDate(detailItem.crowdFunding.startTime, 'X'),
-    endTime: parseDate(detailItem.crowdFunding.endTime, 'X'),
-    sendInfo: `预计${formatDate(parseDate(detailItem.crowdFunding.estimateSendtime, 'X'))}前发货`,
+    startTime: Temporal.Instant.fromEpochMilliseconds(detailItem.crowdFunding.startTime * 1000),
+    endTime: Temporal.Instant.fromEpochMilliseconds(detailItem.crowdFunding.endTime * 1000),
+    sendInfo: `预计${formatDate(Temporal.Instant.fromEpochMilliseconds(detailItem.crowdFunding.estimateSendtime * 1000), 'YYYY年M月D日', 'Asia/Shanghai')}前发货`,
     supportList: toSupportList(detailItem),
 });
 

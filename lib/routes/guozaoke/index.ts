@@ -6,7 +6,7 @@ import { config } from '@/config';
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseRelativeDate } from '@/utils/parse-date';
+import { parseRelativeDate } from '@/utils/time';
 
 export const route: Route = {
     path: '/default',
@@ -49,8 +49,7 @@ async function handler() {
             const title = $item.find('h3.title a').text();
             const href = $item.find('h3.title a').attr('href');
             const author = $item.find('span.username a').text();
-            const lastTouched = $item.find('span.last-touched').text();
-            const updated = lastTouched ? parseRelativeDate(lastTouched) : undefined;
+            const updated = parseRelativeDate($item.find('span.last-touched').text());
             const link = href ? new URL(href.split('#', 1)[0], url) : undefined;
             // the article request carries the configured cookie, so it must not leave www.guozaoke.com
             return link && link.origin === new URL(url).origin ? { title, link: link.href, author, updated } : undefined;

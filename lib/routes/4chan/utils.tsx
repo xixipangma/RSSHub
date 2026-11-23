@@ -2,8 +2,8 @@ import { raw } from 'hono/html';
 import { renderToString } from 'hono/jsx/dom/server';
 import sanitizeHtml from 'sanitize-html';
 
-import { parseDate } from '@/utils/parse-date';
 import { queryToBoolean } from '@/utils/readable-social';
+import { parseDate } from '@/utils/time';
 
 const parseParams = (routeParams?: string) => {
     const parsed = new URLSearchParams(routeParams ?? '');
@@ -15,8 +15,8 @@ const parseParams = (routeParams?: string) => {
         excludeSticky: !!queryToBoolean(parsed.get('excludeSticky')),
         includeLastReplies: !!queryToBoolean(parsed.get('showLastReplies')),
         includeReplyCount: !!queryToBoolean(parsed.get('showReplyCount')),
-        maxReplies: Number.isFinite(maxReplies) ? maxReplies : undefined,
-        minReplies: Number.isFinite(minReplies) ? minReplies : undefined,
+        maxReplies,
+        minReplies,
         revealSpoilers: !!queryToBoolean(parsed.get('revealSpoilers')),
         showThreadFeed: !!queryToBoolean(parsed.get('showThreadFeed')),
     };
@@ -76,7 +76,7 @@ const renderPost = ({ post, board, viewOptions }: { post: ChanPost; board: strin
             media = <embed src={`https://i.4cdn.org/${board}/${post.tim}${post.ext}`} type="application/x-shockwave-flash" width={post.w} height={post.h} />;
             break;
         case '.webm':
-            media = <video src={`https://i.4cdn.org/${board}/${post.tim}${post.ext}`} loop controls class="full-image"></video>;
+            media = <video src={`https://i.4cdn.org/${board}/${post.tim}${post.ext}`} loop controls className="full-image"></video>;
             break;
         default:
             break;

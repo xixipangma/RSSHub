@@ -1,8 +1,8 @@
 import type { Route } from '@/types';
 import got from '@/utils/got';
 import MarkdownIt from '@/utils/markdown-it';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
+import { parseDate } from '@/utils/time';
 
 const md = MarkdownIt();
 
@@ -33,15 +33,12 @@ async function handler(ctx) {
         title: '黑客说的最新帖子',
         link: 'https://hackertalk.net/?tab=new',
         description: '黑客说 - 技术驱动优质交流',
-        item: data.map((item) => {
-            const pubDate = ([undefined, null, ''] as unknown[]).includes(item.createdAt) ? undefined : parseDate(item.createdAt);
-            return {
-                title: item.title,
-                description: md.render(item.content),
-                pubDate: pubDate && !Number.isNaN(pubDate.getTime()) ? pubDate : undefined,
-                author: item.from?.nickname || item.from?.username,
-                link: `https://hackertalk.net/posts/${item.id}`,
-            };
-        }),
+        item: data.map((item) => ({
+            title: item.title,
+            description: md.render(item.content),
+            pubDate: parseDate(item.createdAt),
+            author: item.from.nickname,
+            link: `https://hackertalk.net/posts/${item.id}`,
+        })),
     };
 }

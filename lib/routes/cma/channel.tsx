@@ -8,8 +8,7 @@ import NotFoundError from '@/errors/types/not-found';
 import type { Route } from '@/types';
 import got from '@/utils/got';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
-import timezone from '@/utils/timezone';
+import { parseDate } from '@/utils/time';
 
 const solveChallenge = (prefix: string, leadingZeroBits: number) => {
     for (let count = 0; count < 100_000_000; count++) {
@@ -148,8 +147,8 @@ async function handler(ctx) {
             ),
             author: itemAuthor,
             guid: `cma${article.link}#${article.releaseTime.replaceAll(/\s/g, '-')}`,
-            pubDate: timezone(parseDate(article.releaseTime), 8),
-            enclosure_url: article.image ? new URL(article.image, rootUrl).href : undefined,
+            pubDate: parseDate(article.releaseTime, 8),
+            enclosure_url: new URL(article.image, rootUrl).href,
             enclosure_type: article.image ? `image/${article.image.split(/\./).pop()?.toLowerCase().replace(/^jpg$/, 'jpeg')}` : undefined,
         },
     ];

@@ -4,7 +4,7 @@ import { config } from '@/config';
 import { renderYoutube } from '@/routes/youtube/utils';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
+import { parseDate } from '@/utils/time';
 
 const regionConfig = {
     hk: {
@@ -135,10 +135,7 @@ async function fetchItem(link: string) {
         },
     });
     const $ = load(response);
-    const ldJsonEle = $('script[type="application/ld+json"]')
-        .toArray()
-        .find((ele) => $(ele).text().includes('"@type":"NewsArticle"'));
-    const ldJson = JSON.parse((ldJsonEle && $(ldJsonEle).text()) || '{}');
+    const ldJson = JSON.parse($('script[type="application/ld+json"]:contains(\'"@type":"NewsArticle"\')').text() || '{}');
     const author = ldJson.author?.name;
     const body = $('.atoms').length ? $('.atoms') : $('.article-detail').length ? $('.article-detail') : $('.bodyItems-wrapper');
     body.find('noscript, .recommendation-contents, .text-gandalf, [id^="sda-inbody-"], [data-testid="inarticle-ad"]').remove();

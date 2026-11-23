@@ -2,6 +2,19 @@
 
 This is the durable, newest-first record of repository changes for agents maintaining this fork. Update it in the same commit as every repository change. Do not record secrets or private data.
 
+## 2026-11-23 — Sync upstream DIYgod/RSSHub (102 commits) locally
+
+- **Summary:** Synchronized 102 commits from `DIYgod/RSSHub:master` (up to `61f451228`), bringing in upstream route updates (Together AI, USCC, Facebook search, etc.), dependency bumps, and linting configuration.
+- **Affected files:** Core route files, core shims, `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `internal_docs/changelog.md`.
+- **Upstream revision range:** `a049efac8...61f451228` (102 commits).
+- **Conflicts resolved & retained fork invariants:**
+  - Resolved `package.json` merge conflict to preserve `engines: { "node": "24.x" }` and `scripts.prepare: "exit 0"`.
+  - Preserved `pnpm-workspace.yaml` overrides (`htmlparser2: '10.1.0'`, `'sanitize-html>htmlparser2': '10.1.0'`) and omitted broken global `dom-serializer` override.
+  - Preserved `vercel.json` (`installCommand: "pnpm install --ignore-scripts --no-frozen-lockfile"` and Patchright include-files).
+  - Preserved `.npmrc` (`ignore-scripts=true`) and `.github/workflows/sync-fork.yml` (`if: false`).
+- **Verification:** Ran `pnpm install --ignore-scripts --no-frozen-lockfile` to update lockfile and dependencies without script execution issues; verified `findOrphanFiles` passes cleanly.
+- **Commit:** `sync: merge 102 upstream commits from DIYgod/RSSHub:master`.
+
 ## 2026-11-18 — Sync upstream DIYgod/RSSHub (147 commits) & deploy to Vercel
 
 - **Summary:** Synchronized 147 commits from `DIYgod/RSSHub:master` (up to `a049efac8`), bringing in upstream route updates, fixes, and dependencies.

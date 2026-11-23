@@ -1,6 +1,7 @@
 import got from '@/utils/got';
 
-import { type GetMediumBrowser, isMediumChallenge } from './browser';
+import type { GetMediumBrowser } from './browser';
+import { isMediumChallenge } from './browser';
 
 export type PostPreview = {
     mediumUrl: string;
@@ -90,9 +91,6 @@ async function graphqlRequest(body, cookie, getBrowser?: GetMediumBrowser) {
             throw new Error(`The Medium GraphQL source returned HTTP ${response.status}. Verify the session and try again later.`, { cause: error });
         }
         data = response.data;
-    }
-    if (!Array.isArray(data)) {
-        throw new TypeError('The Medium GraphQL source did not return its expected JSON response.');
     }
     return data[0].data;
 }

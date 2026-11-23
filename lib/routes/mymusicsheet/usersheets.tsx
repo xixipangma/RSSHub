@@ -5,7 +5,7 @@ import { renderYoutube } from '@/routes/youtube/utils';
 import type { Route } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
+import { parseDate } from '@/utils/time';
 
 export const route: Route = {
     path: '/user/sheets/:username/:iso?/:freeOnly?',
@@ -47,7 +47,7 @@ async function handler(ctx) {
             query: {
                 serviceProvider: 'mms',
                 'ngsw-bypass': true,
-                'no-cache': Date.now(),
+                'no-cache': Temporal.Now.instant().epochMilliseconds,
                 skipHeaders: true,
             },
         })
@@ -177,7 +177,7 @@ async function handler(ctx) {
 
         if (item.price === 0) {
             finalPrice = 'Free';
-        } else if (!Number.isNaN(price) && Number.isFinite(price)) {
+        } else {
             const rate = Number(rates[iso]);
             if (rate) {
                 finalPrice = `${(price * rate).toFixed(2)} ${iso}`;
@@ -229,8 +229,8 @@ const MymusicSheetDescription = ({
         price?: string;
     };
 }) => (
-    <div class="item-description">
-        {youtubeId ? raw(renderYoutube(true, youtubeId, undefined, undefined)) : null}
+    <div className="item-description">
+        {youtubeId ? raw(renderYoutube(true, youtubeId)) : null}
         {content.musicName ? <p>Music Name: {content.musicName}</p> : null}
         {content.musicMemo ? <p>Music Memo: {content.musicMemo}</p> : null}
         {content.musicianName ? <p>Musician Name: {content.musicianName}</p> : null}

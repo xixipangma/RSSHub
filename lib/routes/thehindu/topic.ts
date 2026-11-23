@@ -4,7 +4,7 @@ import pMap from 'p-map';
 import type { Data, DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
+import { parseDate } from '@/utils/time';
 
 export const route: Route = {
     path: '/topic/:topic',
@@ -59,11 +59,10 @@ async function handler(ctx): Promise<Data> {
 
                 $('.position-relative, .articleblock-container, .article-ad, .comments-shares, .also-read').remove();
                 const published = $('meta[property="article:published_time"]').attr('content');
-                const modified = $('meta[itemprop="dateModified"]').attr('content');
                 return {
                     description: ($('h2.sub-title').prop('outerHTML') ?? '') + ($('div.article-picture').html() ?? '') + ($('div.schemaDiv').html() ?? ''),
                     pubDate: published ? parseDate(published) : undefined,
-                    updated: modified ? parseDate(modified) : undefined,
+                    updated: parseDate($('meta[itemprop="dateModified"]').attr('content')!),
                     category: $('meta[property="article:tag"]')
                         .toArray()
                         .map((tag) => $(tag).attr('content')!),

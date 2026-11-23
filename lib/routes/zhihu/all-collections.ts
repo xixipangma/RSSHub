@@ -6,7 +6,7 @@ import { ViewType } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
 import md5 from '@/utils/md5';
-import { parseDate } from '@/utils/parse-date';
+import { parseDate } from '@/utils/time';
 
 import { generateData } from './pin/utils';
 import type { Collection, CollectionItem } from './types';
@@ -107,7 +107,7 @@ async function handler(ctx) {
         const data = generateCollectionItem(item);
         const previous = uniqueItems.get(data.link);
         if (previous) {
-            previous.category = [...new Set([...(previous.category ?? []), ...(data.category ?? [])])];
+            previous.category = [...new Set([...[previous.category ?? []].flat(), ...[data.category ?? []].flat()])];
         } else {
             uniqueItems.set(data.link, data);
         }

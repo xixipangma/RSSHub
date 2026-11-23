@@ -1,9 +1,9 @@
-import { type Cheerio, type CheerioAPI, load } from 'cheerio';
+import type { Cheerio, CheerioAPI } from 'cheerio';
+import { load } from 'cheerio';
 import type { ChildNode, Element } from 'domhandler';
 
 import MarkdownIt from '@/utils/markdown-it';
-import { parseDate } from '@/utils/parse-date';
-import timezone from '@/utils/timezone';
+import { parseDate } from '@/utils/time';
 
 const markdownRenderer = MarkdownIt({ html: false, linkify: true });
 
@@ -15,7 +15,7 @@ export const DETAIL_CONCURRENCY = 5;
 
 export type EntrySourceKind = 'kimi' | 'github' | 'huggingface' | 'github-pages' | 'external';
 
-export interface BlogListItem {
+interface BlogListItem {
     id?: string;
     title?: string;
     description?: string;
@@ -33,7 +33,7 @@ export interface ParsedBlogEntry {
     link: string;
     summary: string;
     image?: string;
-    pubDate?: Date;
+    pubDate?: Temporal.Instant;
     kind: EntrySourceKind;
 }
 
@@ -42,24 +42,23 @@ const SAFE_LINK_PROTOCOLS = new Set(['http:', 'https:', 'mailto:']);
 const MEDIA_KEEP_SELECTOR = 'img, video, audio, table, iframe, svg, math, pre, code';
 const DECORATIVE_VIEWBOXES = new Set(['0 0 16 16', '0 0 23 24']);
 
-export const isHostnameOrSubdomain = (hostname: string, domain: string): boolean => hostname === domain || hostname.endsWith(`.${domain}`);
+const isHostnameOrSubdomain = (hostname: string, domain: string): boolean => hostname === domain || hostname.endsWith(`.${domain}`);
 
 const parseSafeUrl = (rawUrl: string | undefined, baseUrl: string, protocols: Set<string>): string | undefined => {
-    const trimmed = rawUrl?.trim();
-    if (!trimmed) {
+    if (!rawUrl) {
         return undefined;
     }
     try {
-        const parsed = new URL(trimmed, baseUrl);
+        const parsed = new URL(rawUrl, baseUrl);
         return protocols.has(parsed.protocol) ? parsed.href : undefined;
     } catch {
         return undefined;
     }
 };
 
-export const resolveHttpUrl = (rawUrl: string | undefined, baseUrl = SITE_URL): string | undefined => parseSafeUrl(rawUrl, baseUrl, SAFE_HTTP_PROTOCOLS);
+const resolveHttpUrl = (rawUrl: string | undefined, baseUrl = SITE_URL): string | undefined => parseSafeUrl(rawUrl, baseUrl, SAFE_HTTP_PROTOCOLS);
 
-export const unwrapImageUrl = (rawUrl: string | undefined, baseUrl = SITE_URL): string | undefined => {
+const unwrapImageUrl = (rawUrl: string | undefined, baseUrl = SITE_URL): string | undefined => {
     const absolute = resolveHttpUrl(rawUrl, baseUrl);
     if (!absolute) {
         return undefined;
@@ -93,20 +92,6 @@ const classifySourceKind = (urlStr: string): EntrySourceKind => {
         return 'github-pages';
     }
     return 'external';
-};
-
-const HAS_EXPLICIT_TIMEZONE_RE = /(?:Z|[+-]\d{2}:?\d{2})$/i;
-
-export const toValidDate = (rawDate: string | undefined): Date | undefined => {
-    const trimmed = rawDate?.trim();
-    if (!trimmed) {
-        return undefined;
-    }
-    const parsed = parseDate(trimmed);
-    if (Number.isNaN(parsed.getTime())) {
-        return undefined;
-    }
-    return HAS_EXPLICIT_TIMEZONE_RE.test(trimmed) ? parsed : timezone(parsed, 8);
 };
 
 const findBalancedJsonObject = (text: string, markerPos: number): string | undefined => {
@@ -146,26 +131,17 @@ const findBalancedJsonObject = (text: string, markerPos: number): string | undef
     return undefined;
 };
 
-const extractNextFlightChunks = ($: CheerioAPI): string[] => {
-    const chunks: string[] = [];
-    $('script').each((_, el) => {
-        const text = $(el).text();
-        if (!text.includes('__next_f')) {
-            return;
-        }
-        for (const match of text.matchAll(/self\.__next_f\.push\(\[1,("(?:\\.|[^"\\])*")\]\)/g)) {
-            try {
-                const decoded = JSON.parse(match[1]) as string;
-                if (typeof decoded === 'string') {
-                    chunks.push(decoded);
-                }
-            } catch {
-                // Ignore malformed RSC flight chunks
-            }
-        }
-    });
-    return chunks;
-};
+const extractNextFlightChunks = ($: CheerioAPI): string[] =>
+    $('script:contains("self.__next_f.push")')
+        .toArray()
+        .flatMap((el) =>
+            Array.from(
+                $(el)
+                    .text()
+                    .matchAll(/self\.__next_f\.push\(\[1,("(?:\\.|[^"\\])*")\]\)/g),
+                (match) => JSON.parse(match[1]) as string
+            )
+        );
 
 const parseArticleListPayload = ($: CheerioAPI): BlogListItem[] => {
     const combinedStream = extractNextFlightChunks($).join('');
@@ -182,7 +158,7 @@ const parseArticleListPayload = ($: CheerioAPI): BlogListItem[] => {
         }
         try {
             const payload = JSON.parse(rawJson) as ArticleListPayload;
-            if (Array.isArray(payload.items) && payload.items.length > 0) {
+            if (payload.items?.length) {
                 return payload.items;
             }
         } catch {
@@ -192,54 +168,29 @@ const parseArticleListPayload = ($: CheerioAPI): BlogListItem[] => {
     return [];
 };
 
-const extractFallbackDomItems = ($: CheerioAPI): BlogListItem[] => {
-    const fallbackItems: BlogListItem[] = [];
-    $('main a[href*="/blog/"]').each((_, el) => {
-        const $el = $(el);
-        const href = $el.attr('href')?.trim();
-        const title = $el.text().replaceAll(/\s+/g, ' ');
-        if (!href || href === '/en/blog/' || href === '/blog/' || !title) {
-            return;
-        }
-        fallbackItems.push({
-            href,
-            title,
-            image: $el.find('img').attr('src'),
-        });
-    });
-    return fallbackItems;
-};
-
 export const extractBlogEntries = (html: string): ParsedBlogEntry[] => {
     const $ = load(html);
-    const flightItems = parseArticleListPayload($);
-    const rawItems = flightItems.length > 0 ? flightItems : extractFallbackDomItems($);
-
-    const seenLinks = new Set<string>();
-    const entries: ParsedBlogEntry[] = [];
-    for (const item of rawItems) {
+    return parseArticleListPayload($).flatMap((item) => {
         const link = resolveHttpUrl(item.href, SITE_URL);
-        if (!link || !item.title || seenLinks.has(link)) {
-            continue;
+        if (!link || !item.title) {
+            return [];
         }
-        seenLinks.add(link);
-        entries.push({
+        return {
             title: item.title,
             link,
             summary: item.description?.trim() ?? '',
             image: unwrapImageUrl(item.image, SITE_URL),
-            pubDate: toValidDate(item.date),
+            pubDate: item.date ? parseDate(item.date, 8) : undefined,
             kind: classifySourceKind(link),
-        });
-    }
-    return entries;
+        };
+    });
 };
 
 const removeSuspenseFallbackSiblings = (tpl: Element, $: CheerioAPI) => {
     let cursor: ChildNode | null = tpl.nextSibling;
     while (cursor) {
         const nextNode: ChildNode | null = cursor.nextSibling;
-        if (cursor.type === 'comment' && cursor.data?.trim() === '/$') {
+        if (cursor.type === 'comment' && cursor.data === '/$') {
             $(cursor).remove();
             break;
         }
@@ -248,17 +199,16 @@ const removeSuspenseFallbackSiblings = (tpl: Element, $: CheerioAPI) => {
     }
 };
 
-const tryHydrateSingleSlot = ($: CheerioAPI, resolvedIds: Set<string>): boolean => {
+const tryHydrateSingleSlot = ($: CheerioAPI): boolean => {
     for (const tpl of $('template[id^="B:"]').toArray()) {
         const id = $(tpl).attr('id');
-        if (!id || resolvedIds.has(id)) {
+        if (!id) {
             continue;
         }
-        const $slot = $(`div[id="S:${id.slice(2)}"]`).first();
+        const $slot = $(`div[id="S:${id.slice(2)}"]`);
         if ($slot.length === 0) {
             continue;
         }
-        resolvedIds.add(id);
         removeSuspenseFallbackSiblings(tpl, $);
         $(tpl).replaceWith($slot.contents());
         $slot.remove();
@@ -268,8 +218,7 @@ const tryHydrateSingleSlot = ($: CheerioAPI, resolvedIds: Set<string>): boolean 
 };
 
 export const hydrateNextSuspenseSlots = ($: CheerioAPI) => {
-    const resolvedIds = new Set<string>();
-    while (tryHydrateSingleSlot($, resolvedIds)) {
+    while (tryHydrateSingleSlot($)) {
         // Re-scan after each replacement so nested Suspense templates hydrate safely
     }
 };
@@ -301,7 +250,7 @@ const convertCustomMarkdownAndLatex = ($root: Cheerio<Element>, $: CheerioAPI, b
 };
 
 const pruneChromeAndDuplicates = ($root: Cheerio<Element>, $: CheerioAPI) => {
-    $root.find('h1, nav, header, footer, button, script, style, noscript, template, #toc-popup, #toc-btn, .toc, .floating-cta-root, [class*="BlogV2MiniNav"], [class*="animate-pulse"], .katex-html, a.anchor, img#banner').remove();
+    $root.find('h1, header, footer, button, script, #toc-popup, #toc-btn, .toc, [class*="animate-pulse"], .katex-html, a.anchor, img#banner').remove();
 
     $root.find('img').each((_, img) => {
         const cls = $(img).attr('class') || '';
@@ -329,7 +278,7 @@ const sanitizeLinksAndMedia = ($root: Cheerio<Element>, $: CheerioAPI, baseUrl: 
 
     $root.find('img').each((_, el) => {
         const $img = $(el);
-        const resolved = unwrapImageUrl($img.attr('src') || $img.attr('data-src'), baseUrl);
+        const resolved = unwrapImageUrl($img.attr('src'), baseUrl);
         if (!resolved) {
             $img.remove();
             return;
@@ -349,10 +298,6 @@ const sanitizeLinksAndMedia = ($root: Cheerio<Element>, $: CheerioAPI, baseUrl: 
         } else {
             $media.removeAttr('src');
         }
-        const poster = resolveHttpUrl($media.attr('poster'), baseUrl);
-        if (poster) {
-            $media.attr('poster', poster);
-        }
         if (!src && $media.find('source[src]').length === 0) {
             $media.remove();
         }
@@ -370,7 +315,7 @@ const sanitizeLinksAndMedia = ($root: Cheerio<Element>, $: CheerioAPI, baseUrl: 
 
     $root.find('a[href]').each((_, el) => {
         const $a = $(el);
-        const href = $a.attr('href')?.trim();
+        const href = $a.attr('href');
         if (!href || href.startsWith('#')) {
             return;
         }

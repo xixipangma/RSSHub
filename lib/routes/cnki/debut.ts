@@ -3,8 +3,7 @@ import { load } from 'cheerio';
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
-import timezone from '@/utils/timezone';
+import { parseDate } from '@/utils/time';
 
 const rootUrl = 'https://oversea.cnki.net';
 
@@ -99,8 +98,8 @@ async function handler(ctx) {
                         .map((author) => author.trim())
                         .filter(Boolean)
                         .join(', '),
-                    pubDate: date ? timezone(parseDate(date, 'YYYY-MM-DD HH:mm:ss'), 8) : undefined,
-                } as DataItem,
+                    pubDate: date ? parseDate(date, 'YYYY-MM-DD HH:mm:ss', 8) : undefined,
+                },
             };
         })
         .filter(({ filename }) => filename);
@@ -108,7 +107,7 @@ async function handler(ctx) {
     const items = await Promise.all(
         list.map(async ({ detailUrl, item }) => {
             try {
-                return await cache.tryGet(item.link!, () => fetchDetail(item, detailUrl));
+                return await cache.tryGet(item.link, () => fetchDetail(item, detailUrl));
             } catch {
                 // Keep the item without an abstract when the article page fails
                 return item;
@@ -119,6 +118,6 @@ async function handler(ctx) {
     return {
         title: `${title} - 全网首发`,
         link: `https://navi.cnki.net/knavi/journals/${name}/detail`,
-        item: items as DataItem[],
+        item: items,
     };
 }

@@ -2,12 +2,9 @@ import { load } from 'cheerio';
 
 import type { DataItem, Language, Route } from '@/types';
 import cache from '@/utils/cache';
-import logger from '@/utils/logger';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
-import playwright from '@/utils/playwright';
 import { getRouteLimit } from '@/utils/route-limit';
-import timezone from '@/utils/timezone';
+import { parseDate } from '@/utils/time';
 import { isOnSite } from '@/utils/valid-host';
 
 export const route: Route = {
@@ -17,7 +14,7 @@ export const route: Route = {
     parameters: { category: '分類，見下表，留空為 `realtimenews`' },
     features: {
         requireConfig: false,
-        requirePuppeteer: true,
+        requirePuppeteer: false,
         antiCrawler: false,
         supportBT: false,
         supportPodcast: false,
@@ -45,7 +42,6 @@ async function handler(ctx) {
 
     const response = await ofetch(link);
     const $ = load(response);
-    const context = await playwright();
 
     const list = $('.articlebox-compact')
         .toArray()
@@ -57,7 +53,7 @@ async function handler(ctx) {
                 title: a.text(),
                 link: `${new URL(a.attr('href')!, baseUrl).href}?chdtv`,
                 guid: `${baseUrl}${a.attr('href')}`,
-                pubDate: timezone(parseDate($item.find('time').attr('datetime')!), 8),
+                pubDate: parseDate($item.find('time').attr('datetime')!, 8),
                 category: $item
                     .find('.category a')
                     .toArray()
@@ -72,23 +68,12 @@ async function handler(ctx) {
                 return item;
             }
             return cache.tryGet(item.link!, async () => {
-                const page = await context.newPage();
-                await page.route('**/*', (route) => {
-                    const request = route.request();
-                    request.resourceType() === 'document' ? route.continue() : route.abort();
-                });
-                logger.http(`Requesting ${item.link}`);
-                await page.goto(item.link!, {
-                    waitUntil: 'domcontentloaded',
-                });
-
-                const response = await page.content();
-                await page.close();
+                const response = await ofetch(item.link!);
                 const $ = load(response);
 
                 item.category = [
                     ...new Set([
-                        ...item.category,
+                        ...[item.category].flat(),
                         ...$('.article-hash-tag a')
                             .toArray()
                             .map((i) => $(i).text()),
@@ -103,8 +88,6 @@ async function handler(ctx) {
             });
         })
     );
-
-    await context.close();
 
     return {
         title: $('head title').text(),

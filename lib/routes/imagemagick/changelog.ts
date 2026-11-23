@@ -3,7 +3,7 @@ import { load } from 'cheerio';
 import type { Route } from '@/types';
 import got from '@/utils/got';
 import MarkdownIt from '@/utils/markdown-it';
-import { parseDate } from '@/utils/parse-date';
+import { parseDate } from '@/utils/time';
 
 const md = MarkdownIt({
     html: true,
@@ -58,13 +58,11 @@ async function handler() {
                 description += $(el).prop('outerHTML');
             });
 
-            const date = title.match(/- (\d{4}-\d{2}-\d{2})/)?.[1];
-
             return {
                 title,
                 description,
                 link: `${logUrl}#${title.replaceAll(/\s+/g, '-').replaceAll('.', '')}`,
-                pubDate: date ? parseDate(`${date}T00:00:00Z`) : undefined,
+                pubDate: parseDate(`${title.match(/- (\d{4}-\d{2}-\d{2})/)![1]}T00:00:00Z`),
             };
         });
 

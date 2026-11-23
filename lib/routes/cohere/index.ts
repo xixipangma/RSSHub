@@ -4,8 +4,8 @@ import type { Context } from 'hono';
 import type { Data, DataItem, Route } from '@/types';
 import { ViewType } from '@/types';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
+import { parseDate } from '@/utils/time';
 
 import type { SanityBlock } from './templates/description';
 import { renderGhostDescription as renderGhostDescriptionTemplate, renderSanityDescription } from './templates/description';
@@ -78,26 +78,10 @@ const renderDescription = (post: CohereBlogPost) => {
 
 const renderGhostDescription = (post: GhostPost) => {
     const $ = load(post.html ?? '', null, false);
-    $('script, style').remove();
     $('img').each((_, el) => {
         const src = $(el).attr('src');
         if (src?.startsWith('http://')) {
             $(el).attr('src', src.replace(/^http:\/\//, 'https://'));
-        } else if (src?.startsWith('/')) {
-            const resolved = resolveSafeUrl(src);
-            if (resolved) {
-                $(el).attr('src', resolved);
-            }
-        }
-    });
-    $('a').each((_, el) => {
-        const href = $(el).attr('href');
-        if (!href?.startsWith('/')) {
-            return;
-        }
-        const resolved = resolveSafeUrl(href);
-        if (resolved) {
-            $(el).attr('href', resolved);
         }
     });
 
@@ -134,11 +118,11 @@ const normalizeBlogLink = (slug: string) =>
 const parseBlogDate = (value?: string | null) => (value ? parseDate(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00Z` : value) : undefined);
 
 const toValidTimestamp = (pubDate?: DataItem['pubDate']) => {
-    if (!(pubDate instanceof Date)) {
+    if (!(pubDate instanceof Temporal.Instant)) {
         return 0;
     }
-    const time = pubDate.getTime();
-    return Number.isFinite(time) ? time : 0;
+    const time = pubDate.epochMilliseconds;
+    return time || 0;
 };
 
 interface BlogEntry {
@@ -148,7 +132,7 @@ interface BlogEntry {
 }
 
 const toSanityEntry = (post: CohereBlogPost, link: string): BlogEntry => {
-    const categories = [...new Set((post.tags ?? []).flat().filter((tag): tag is string => Boolean(tag?.trim())))];
+    const categories = (post.tags ?? []).flat().filter((tag): tag is string => Boolean(tag?.trim()));
     const authors = (post.authors ?? []).filter((author): author is string => Boolean(author?.trim()));
     const image = resolveSafeUrl(post.ogUrl ?? undefined) ?? resolveSafeUrl(post.heroUrl ?? undefined);
     const rawPubDate = parseBlogDate(post.date);
@@ -171,8 +155,8 @@ const toSanityEntry = (post: CohereBlogPost, link: string): BlogEntry => {
 };
 
 const toGhostEntry = (post: GhostPost, link: string, includeBody: boolean): BlogEntry => {
-    const categories = [...new Set((post.tags ?? []).filter((tag) => tag.visibility !== 'internal' && tag.name && !tag.name.startsWith('#')).map((tag) => tag.name!.trim()))];
-    const authors = (post.authors ?? []).map((author) => author.name?.trim()).filter((name): name is string => Boolean(name));
+    const categories = (post.tags ?? []).filter((tag) => tag.visibility !== 'internal' && tag.name && !tag.name.startsWith('#')).map((tag) => tag.name!);
+    const authors = (post.authors ?? []).map((author) => author.name).filter((name): name is string => Boolean(name));
     const image = resolveSafeUrl(post.og_image ?? undefined) ?? resolveSafeUrl(post.feature_image ?? undefined);
     const rawPubDate = parseBlogDate(post.published_at);
     const timestamp = toValidTimestamp(rawPubDate);
@@ -285,9 +269,7 @@ async function handler(ctx: Context): Promise<Data> {
     const sanityPosts = sanityRes.result ?? [];
     for (const post of sanityPosts) {
         const link = normalizeBlogLink(post.slug);
-        if (!byLink.has(link)) {
-            byLink.set(link, toSanityEntry(post, link));
-        }
+        byLink.set(link, toSanityEntry(post, link));
     }
 
     const ghostPosts = ghostRes.posts ?? [];

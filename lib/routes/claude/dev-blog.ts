@@ -5,8 +5,8 @@ import pMap from 'p-map';
 import type { Data, DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
 import parser from '@/utils/rss-parser';
+import { parseDate } from '@/utils/time';
 
 const baseUrl = 'https://claude.dev';
 
@@ -58,7 +58,7 @@ async function handler(ctx: Context): Promise<Data> {
 
                 const content = $('.prose');
                 // Drop interactive UI, the mobile copy of each diagram and inactive tab panels
-                content.find('script, style, button, [role="tablist"], [role="tabpanel"][hidden], .art-diagram-narrow').remove();
+                content.find('style, button, [role="tablist"], [role="tabpanel"][hidden], .art-diagram-narrow').remove();
                 // Figure labels are separated from captions by CSS only
                 content.find('figcaption > b:first-child').after(' · ');
 

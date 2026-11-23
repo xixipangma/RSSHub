@@ -6,18 +6,10 @@ import InvalidParameterError from '@/errors/types/invalid-parameter';
 import type { Data, DataItem, Language, Route } from '@/types';
 import { ViewType } from '@/types';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
+import { parseDate } from '@/utils/time';
 
-const parseGmtDate = (value: string | undefined) => {
-    if (!value) {
-        return;
-    }
-    const date = parseDate(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`);
-    return Number.isNaN(date.getTime()) ? undefined : date;
-};
-
-export const handler = async (ctx: Context): Promise<Data> => {
+const handler = async (ctx: Context): Promise<Data> => {
     const { filter } = ctx.req.param();
     const limit = Math.min(getRouteLimit(ctx, 50), 100);
 
@@ -154,7 +146,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
         let processedItem: DataItem = {
             title,
             description,
-            pubDate: parseGmtDate(pubDate),
+            pubDate: parseDate(`${pubDate}Z`),
             link: linkUrl ?? guid,
             category: categories,
             author: authors,
@@ -166,7 +158,7 @@ export const handler = async (ctx: Context): Promise<Data> => {
             },
             image,
             banner: image,
-            updated: parseGmtDate(updated),
+            updated: parseDate(`${updated}Z`),
             language,
         };
 

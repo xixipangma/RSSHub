@@ -2,8 +2,8 @@ import { load } from 'cheerio';
 
 import type { Route } from '@/types';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
+import { parseDate } from '@/utils/time';
 
 export const route: Route = {
     path: '/recommend',
@@ -27,15 +27,15 @@ async function handler(ctx) {
         .toArray()
         .map((element) => {
             const $element = $(element);
-            const linkElement = $element.find('a.title').first();
+            const linkElement = $element.find('a.title');
             const image = $element.find('a.pic img').attr('src');
-            const brief = $element.find('div.brief').text().trim();
-            const pubDate = parseDate($element.find('.time').text().trim());
+            const brief = $element.find('div.brief').text();
+            const pubDate = parseDate($element.find('.time').text());
 
             return {
-                title: linkElement.text().trim(),
+                title: linkElement.text(),
                 link: linkElement.attr('href') ? new URL(linkElement.attr('href')!, baseUrl).href : undefined,
-                pubDate: Number.isFinite(pubDate.getTime()) ? pubDate : undefined,
+                pubDate,
                 description: `${image ? `<img src="${new URL(image, baseUrl).href}">` : ''}${brief ? `<p>${brief}</p>` : ''}`,
             };
         })

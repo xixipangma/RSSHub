@@ -3,8 +3,8 @@ import type { Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
 import MarkdownIt from '@/utils/markdown-it';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
+import { parseDate } from '@/utils/time';
 
 const md = MarkdownIt({
     html: true,
@@ -79,7 +79,7 @@ async function handler(ctx) {
                 break;
             case 'IssueCommentEvent':
                 item.title = item.payload.issue.title;
-                item.description = typeof item.payload.comment.body === 'string' ? md.render(item.payload.comment.body) : undefined;
+                item.description = md.render(item.payload.comment.body);
                 item.link = item.payload.comment.html_url;
                 break;
             default:

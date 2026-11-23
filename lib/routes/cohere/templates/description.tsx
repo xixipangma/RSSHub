@@ -3,16 +3,18 @@ import { raw } from 'hono/html';
 import type { Child } from 'hono/jsx';
 import { renderToString } from 'hono/jsx/dom/server';
 
+import { renderYoutube } from '@/routes/youtube/utils';
+
 import { resolveSafeUrl, SITE_URL } from '../utils';
 
-export interface SanitySpan {
+interface SanitySpan {
     _type?: string;
     text?: string;
     body?: string;
     marks?: string[];
 }
 
-export interface SanityMarkDef {
+interface SanityMarkDef {
     _key: string;
     _type: string;
     href?: string;
@@ -184,7 +186,7 @@ const renderEmbedHtml = (rawHtml?: string) => {
         return null;
     }
     const $ = load(rawHtml, null, false);
-    $('style, script').remove();
+    $('style').remove();
     const html = $.html().trim();
     return html ? raw(html) : null;
 };
@@ -211,7 +213,7 @@ const blockRenderers = new Map<string, (block: SanityBlock) => Node>([
         (block) =>
             block.code ? (
                 <pre>
-                    <code class={block.language ? `language-${block.language}` : undefined}>{block.code}</code>
+                    <code className={block.language ? `language-${block.language}` : undefined}>{block.code}</code>
                 </pre>
             ) : null,
     ],
@@ -221,7 +223,7 @@ const blockRenderers = new Map<string, (block: SanityBlock) => Node>([
             const latex = block.body?.trim();
             return latex ? (
                 <pre>
-                    <code class="language-latex">{latex}</code>
+                    <code className="language-latex">{latex}</code>
                 </pre>
             ) : null;
         },
@@ -278,7 +280,7 @@ const blockRenderers = new Map<string, (block: SanityBlock) => Node>([
             }
             const id = youtubeIdFromUrl(url);
             return id ? (
-                <iframe src={`https://www.youtube.com/embed/${id}`} allowfullscreen></iframe>
+                raw(renderYoutube(true, id))
             ) : (
                 <p>
                     <a href={url}>{url}</a>

@@ -1,4 +1,5 @@
-import { type CheerioAPI, load } from 'cheerio';
+import type { CheerioAPI } from 'cheerio';
+import { load } from 'cheerio';
 import pMap from 'p-map';
 
 import { config } from '@/config';
@@ -7,8 +8,8 @@ import ConfigNotFoundError from '@/errors/types/config-not-found';
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
 import { getPlaywrightPage } from '@/utils/playwright';
+import { parseDate } from '@/utils/time';
 
 import { baseUrl, browserResourceTypes, isBlockedRequest, toBrowserCookies } from './utils';
 
@@ -50,8 +51,7 @@ function parseForumDate(value?: string) {
     if (!text) {
         return;
     }
-    const date = parseDate(text);
-    return Number.isNaN(date.getTime()) ? undefined : date;
+    return parseDate(text);
 }
 
 function resolveForumLink(value: string | undefined, base: string) {
@@ -194,7 +194,7 @@ async function handler(ctx) {
         items = await pMap(
             items,
             async (item) => {
-                const detail = await cache.tryGet(`xsijishe:article:v2:${item.link!}`, () => fetchArticleContent(item.link!, source));
+                const detail = await cache.tryGet(`xsijishe:article:v2:${item.link}`, () => fetchArticleContent(item.link, source));
                 return { ...item, ...detail };
             },
             { concurrency: 3, stopOnError: false }

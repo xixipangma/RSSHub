@@ -2,11 +2,10 @@ import { load } from 'cheerio';
 
 import { config } from '@/config';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
-import timezone from '@/utils/timezone';
+import { parseDate } from '@/utils/time';
 import { isOnSite } from '@/utils/valid-host';
 
-export async function getNotifByPage(url): Promise<Array<{ title: string; link: string; pubDate: Date }>> {
+export async function getNotifByPage(url): Promise<Array<{ title: string; link: string; pubDate: Temporal.Instant | undefined }>> {
     const pageUrl: string = url;
 
     const response = await got.get(pageUrl, {
@@ -31,7 +30,7 @@ export async function getNotifByPage(url): Promise<Array<{ title: string; link: 
         return {
             title: title!,
             link: new URL(href!, pageUrl).href,
-            pubDate: timezone(parseDate(time, 'YYYY-MM-DD'), 8),
+            pubDate: parseDate(time, 'YYYY-MM-DD', 8),
         };
     });
 }
@@ -51,9 +50,9 @@ export async function getArticle(articleUrl: string) {
             const html = response.body;
             const $ = load(html);
 
-            const articleContentElement = $('.leftmain_news').first();
+            const articleContentElement = $('.leftmain_news');
             articleContentElement.find('.leftmain_news_title, .leftmain_news_time').remove();
-            return { description: articleContentElement.html() ?? undefined };
+            return { description: articleContentElement.html() };
         } catch {
             // console.error(error);
         }

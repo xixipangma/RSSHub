@@ -3,8 +3,8 @@ import { load } from 'cheerio';
 import type { Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
+import { parseDate } from '@/utils/time';
 import { isOnSite } from '@/utils/valid-host';
 
 import { renderDescription } from './templates/description';
@@ -32,8 +32,8 @@ async function getTopic(link: string) {
     const response = await got(link);
     const $ = load(response.data);
     return {
-        topicTitle: $('meta[property="og:title"]').attr('content') ?? $('title').text(),
-        topicDescription: $('meta[property="og:description"]').attr('content') ?? $('meta[name="description"]').attr('content'),
+        topicTitle: $('meta[property="og:title"]').attr('content'),
+        topicDescription: $('meta[property="og:description"]').attr('content'),
     };
 }
 

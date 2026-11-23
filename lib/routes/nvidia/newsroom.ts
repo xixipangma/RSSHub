@@ -4,9 +4,9 @@ import pMap from 'p-map';
 import type { Route } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
 import parser from '@/utils/rss-parser';
+import { parseDate } from '@/utils/time';
 
 const rootUrl = 'https://nvidianews.nvidia.com';
 
@@ -25,7 +25,7 @@ export const route: Route = {
     radar: [{ source: ['nvidianews.nvidia.com', 'nvidianews.nvidia.com/news/:slug'], target: '/newsroom' }],
     features: { requirePuppeteer: false, supportRadar: true },
     handler: async (ctx) => {
-        const response = await ofetch(`${rootUrl}/rss.xml`, { responseType: 'text' });
+        const response = await ofetch(`${rootUrl}/rss.xml`);
         const feed = await parser.parseString(response);
 
         return {
@@ -54,13 +54,12 @@ export const route: Route = {
 };
 
 async function fetchArticle(link: string) {
-    const response = await ofetch(link, { responseType: 'text' });
+    const response = await ofetch(link);
     const $ = load(response);
-    const article = $('.article-body, .entry-content, .full-width-layout__sections').first();
+    const article = $('.article-body, .entry-content, .full-width-layout__sections');
     if (!article.length) {
         throw new Error(`NVIDIA article content not found: ${link}`);
     }
-    article.find('script, style, button, .heading-anchor-link').remove();
 
     return {
         description: article.html()!,

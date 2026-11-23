@@ -4,9 +4,8 @@ import pMap from 'p-map';
 import InvalidParameterError from '@/errors/types/invalid-parameter';
 import type { Route } from '@/types';
 import cache from '@/utils/cache';
-import { parseDate } from '@/utils/parse-date';
 import { getPlaywrightPage } from '@/utils/playwright';
-import timezone from '@/utils/timezone';
+import { parseDateStrict } from '@/utils/time';
 import { isOnSite } from '@/utils/valid-host';
 
 const baseUrl = 'https://sise.uestc.edu.cn/';
@@ -71,7 +70,7 @@ async function handler(ctx) {
         onBeforeLoad: async (page) => {
             await page.route('**/*', (route) => {
                 const request = route.request();
-                isOneOf(request.resourceType(), ['document', 'script']) ? route.continue() : route.abort();
+                return request.resourceType() === 'document' || request.resourceType() === 'script' ? route.continue() : route.abort();
             });
         },
     });
@@ -98,11 +97,10 @@ async function handler(ctx) {
                           };
                       })
                     : { date: undefined };
-                const parsedDate = date ? parseDate(date, 'YYYY-MM-DD', true) : undefined;
                 return {
                     title: newsTitle,
                     link: newsLink,
-                    pubDate: parsedDate && !Number.isNaN(parsedDate.getTime()) ? timezone(parsedDate, 8) : undefined,
+                    pubDate: date ? parseDateStrict(date, 'YYYY-MM-DD', 8) : undefined,
                 };
             },
             { concurrency: 1 }
@@ -116,9 +114,4 @@ async function handler(ctx) {
     } finally {
         await destroy();
     }
-}
-
-function isOneOf<const T>(value: unknown, values: readonly T[]): value is T {
-    const candidates: readonly unknown[] = values;
-    return candidates.includes(value);
 }

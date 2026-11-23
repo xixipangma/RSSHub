@@ -1,13 +1,13 @@
-import { type CheerioAPI, load } from 'cheerio';
+import type { CheerioAPI } from 'cheerio';
+import { load } from 'cheerio';
+import { raw } from 'hono/html';
 import { renderToString } from 'hono/jsx/dom/server';
 import pMap from 'p-map';
 
-import type { DataItem, Route } from '@/types';
+import type { Route } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
-import { parseDateRange } from '@/utils/parse-date-range';
-import timezone from '@/utils/timezone';
+import { parseDate, parseDateRange } from '@/utils/time';
 
 import { namespace } from './namespace';
 
@@ -71,17 +71,15 @@ export const route: Route = {
                     const dateRaw =
                         $detail('div.n2')
                             .text()
-                            .match(/\[(.+?)\]/)?.[1]
-                            ?.trim() || '';
-                    const parsedDate = /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? timezone(parseDate(dateRaw, 'YYYY-MM-DD', true), 8) : undefined;
-                    const pubDate = parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate : undefined;
-                    return { pubDate, location, startDate, endDate, description: $detail('.info .txt').html() || undefined };
+                            .match(/\[(.+?)\]/)?.[1] || '';
+                    const pubDate = parseDate(dateRaw, 8);
+                    return { pubDate, location, startDate, endDate, description: $detail('.info .txt').html() };
                 });
                 const { pubDate, location, startDate, endDate } = detail;
                 const description = renderToString(
                     <div>
-                        {imgUrl && <img src={imgUrl} />}
-                        <div dangerouslySetInnerHTML={{ __html: detail.description || '' }} />
+                        <img src={imgUrl} />
+                        <div>{raw(detail.description || '')}</div>
                     </div>
                 );
                 return {
@@ -98,7 +96,7 @@ export const route: Route = {
             title: `${museumName} - 最新展览`,
             link: listUrl,
             language: 'zh-CN',
-            item: items as DataItem[],
+            item: items,
         };
     },
 };

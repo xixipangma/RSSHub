@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type * as TelegramClientModule from '@/routes/telegram/tglib/client';
 import md5 from '@/utils/md5';
 import type { WeiboOAuthState } from '@/utils/weibo-oauth';
 
@@ -22,7 +21,7 @@ vi.mock('@/routes/telegram/tglib/client', async (importOriginal) => {
         media: new Api.MessageMediaPhoto({ photo: new Api.PhotoEmpty({ id: returnBigInt(7) }) }),
     };
     return {
-        ...(await importOriginal<typeof TelegramClientModule>()),
+        ...(await importOriginal<object>()),
         getClient: () => ({
             getInputEntity: () => new Api.InputPeerChannel({ channelId: channel.id, accessHash: returnBigInt(2) }),
             getEntity: () => channel,
@@ -146,7 +145,7 @@ describe('protected Weibo OAuth', () => {
         const expiredState = await (await app.request('/authorize?key=fake-test-key')).text();
         const key = `weibo:oauth:state:${expiredState}`;
         const stored = JSON.parse((await cache.globalCache.get(key))!);
-        await cache.globalCache.set(key, { ...stored, expiresAt: Date.now() - 1 }, 600);
+        await cache.globalCache.set(key, { ...stored, expiresAt: Temporal.Now.instant().epochMilliseconds - 1 }, 600);
         expect((await app.request(`/weibo/timeline/0?code=fake-oauth-code&state=${expiredState}`)).status).toBe(403);
         const previousState = await (await app.request('/authorize?key=fake-test-key')).text();
         config.accessKey = 'rotated-fake-test-key';

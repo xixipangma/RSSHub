@@ -5,11 +5,12 @@ import type { Data, DataItem, Route } from '@/types';
 import { ViewType } from '@/types';
 import cache from '@/utils/cache';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
+import { parseDate } from '@/utils/time';
 
 import { renderArticleDescription } from './templates/description';
-import { API_BASE_URL, type ArticleDetail, type ArticleListItem, type ArticleListResponse, CATEGORY_NAME_MAP, CATEGORY_OPTIONS, DEFAULT_LIMIT, DETAIL_CONCURRENCY, MAX_LIMIT, pickImageUrl, SITE_URL } from './utils';
+import type { ArticleDetail, ArticleListItem, ArticleListResponse } from './utils';
+import { API_BASE_URL, CATEGORY_NAME_MAP, CATEGORY_OPTIONS, DEFAULT_LIMIT, DETAIL_CONCURRENCY, MAX_LIMIT, pickImageUrl, SITE_URL } from './utils';
 
 const JSON_HEADERS = {
     Accept: 'application/json',
@@ -21,21 +22,21 @@ const formatTitle = (detail: ArticleDetail, listItem: ArticleListItem): string =
 };
 
 const formatAuthors = (detail: ArticleDetail, listItem: ArticleListItem): string | undefined => {
-    const names = [detail.aside?.author?.name?.trim(), detail.aside?.interviewer?.name?.trim(), listItem.author?.name?.trim()].filter((name): name is string => Boolean(name));
+    const names = [detail.aside?.author?.name, detail.aside?.interviewer?.name, listItem.author?.name].filter((name): name is string => Boolean(name));
     const unique = [...new Set(names)];
     return unique.length > 0 ? unique.join(', ') : undefined;
 };
 
 const extractTags = (detail: ArticleDetail, listItem: ArticleListItem): string[] | undefined => {
     const rawTags = detail.aside?.tags ?? listItem.tags ?? [];
-    const unique = [...new Set(rawTags.map((tag) => tag.name?.trim()).filter((name): name is string => Boolean(name)))];
-    return unique.length > 0 ? unique : undefined;
+    const names = rawTags.map((tag) => tag.name).filter((name): name is string => Boolean(name));
+    return names.length > 0 ? names : undefined;
 };
 
 const resolveCoverImage = (detail: ArticleDetail, listItem: ArticleListItem): string | undefined =>
     pickImageUrl(listItem.image) ?? pickImageUrl(listItem.preview) ?? pickImageUrl(detail.image) ?? pickImageUrl(detail.meta?.['og-og:image']?.content);
 
-const resolvePubDate = (detail: ArticleDetail, listItem: ArticleListItem): Date | undefined => {
+const resolvePubDate = (detail: ArticleDetail, listItem: ArticleListItem): Temporal.Instant | undefined => {
     const rawDate = detail.meta?.['article-article:published_time']?.content ?? detail.aside?.date ?? listItem.date;
     return rawDate ? parseDate(rawDate) : undefined;
 };
@@ -97,19 +98,7 @@ async function handler(ctx: Context): Promise<Data> {
         query: buildListQuery(limit, category),
     });
 
-    const seenSlugs = new Set<string>();
-    const targetItems: ArticleListItem[] = [];
-    const listItems = listRes.items ?? [];
-    for (const item of listItems) {
-        if (!item.slug || seenSlugs.has(item.slug)) {
-            continue;
-        }
-        seenSlugs.add(item.slug);
-        targetItems.push(item);
-        if (targetItems.length >= limit) {
-            break;
-        }
-    }
+    const targetItems = (listRes.items ?? []).filter((item) => item.slug).slice(0, limit);
 
     const items = await pMap(targetItems, (listItem) => fetchArticleDetail(listItem), {
         concurrency: DETAIL_CONCURRENCY,
@@ -121,7 +110,7 @@ async function handler(ctx: Context): Promise<Data> {
         title: `80 Level - ${categoryLabel}`,
         link: category ? `${SITE_URL}/articles/${category}` : `${SITE_URL}/articles`,
         language: category === '80-level-china' ? 'zh-CN' : 'en',
-        item: items as DataItem[],
+        item: items,
     };
 }
 

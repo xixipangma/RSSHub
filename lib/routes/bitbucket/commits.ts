@@ -3,7 +3,7 @@ import queryString from 'query-string';
 import { config } from '@/config';
 import type { Route } from '@/types';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
+import { parseDate } from '@/utils/time';
 
 export const route: Route = {
     path: '/commits/:workspace/:repo_slug',
@@ -38,7 +38,7 @@ async function handler(ctx) {
         Accept: 'application/json',
     };
     if (config.bitbucket && config.bitbucket.username && config.bitbucket.password) {
-        headers.Authorization = `Basic ${Buffer.from(`${config.bitbucket.username}:${config.bitbucket.password}`).toString('base64')}`;
+        headers.Authorization = `Basic ${Buffer.from(`${config.bitbucket.username}:${config.bitbucket.password}`).toBase64()}`;
     }
     const response = await got({
         method: 'get',

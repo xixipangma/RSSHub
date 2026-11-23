@@ -7,8 +7,8 @@ import type { DataItem } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
 import md5 from '@/utils/md5';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
+import { parseDate } from '@/utils/time';
 
 import { renderDescription } from './templates/description';
 
@@ -80,7 +80,7 @@ const getApiDomains = () =>
             let domains: string[] = [];
             try {
                 const response = await got(apiDomainServer);
-                const { Server } = JSON.parse(decrypt(String(response.body).trim(), 'diosfjckwpqpdfjkvnqQjsik'));
+                const { Server } = JSON.parse(decrypt(response.body, 'diosfjckwpqpdfjkvnqQjsik'));
                 domains = Server.filter((domain) => typeof domain === 'string' && /^[\w.-]+$/.test(domain));
             } catch {
                 // use the fallback domains
@@ -93,7 +93,7 @@ const getApiDomains = () =>
 
 const fetchApi = async (apiUrl: string) => {
     // get timestamp using javascript native api
-    const ts = Date.now();
+    const ts = Temporal.Now.instant().epochMilliseconds;
     const tokenParam = `${ts},1.7.5`;
     // md5 from {token ts + "18comicAPP"
     let token = `${ts}18comicAPP`;

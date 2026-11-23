@@ -4,8 +4,8 @@ import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
 import MarkdownIt from '@/utils/markdown-it';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
+import { parseDate } from '@/utils/time';
 
 import { renderDescription } from './templates/desc';
 
@@ -77,7 +77,7 @@ async function handler(ctx) {
             const body = await cache.tryGet(`${item.link}:readme-images`, async () => {
                 const { data } = await got(`${baseUrl}/api/v1/datasets${slug}`);
 
-                const content = (data.Data.ReadmeContent ?? '').replaceAll(/img src="(?!http)(.*?)"/g, (_match, p1) => `img src="${baseUrl}/api/v1/datasets${slug}/repo?Revision=master&FilePath=${p1}&View=true"`);
+                const content = data.Data.ReadmeContent.replaceAll(/img src="(?!http)(.*?)"/g, (_match, p1) => `img src="${baseUrl}/api/v1/datasets${slug}/repo?Revision=master&FilePath=${p1}&View=true"`);
                 return { content: md.render(content, { repositoryUrl: `${baseUrl}/api/v1/datasets${slug}/repo` }) };
             });
             return { ...item, description: renderDescription({ description: item.description ?? undefined, md: body.content }) };

@@ -3,8 +3,8 @@ import { load } from 'cheerio';
 import type { Language, Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
+import { parseDate } from '@/utils/time';
 
 export const route: Route = {
     path: '/essay',
@@ -49,12 +49,11 @@ const convertAttributes = (source: string, files: Record<string, string>, rootUr
 };
 
 const parsePublicationMonth = (value: string) => {
-    const match = value.trim().match(/^([A-Z]+)\s+(\d{4})\b/i);
+    const match = /^([A-Z]+)\s+(\d{4})\b/i.exec(value.trim());
     if (!match) {
         return;
     }
-    const date = parseDate(`${match[1]} 1, ${match[2]} GMT`);
-    return Number.isFinite(date.getTime()) ? date : undefined;
+    return parseDate(`${match[1]} 1, ${match[2]}`, 'MMM D, YYYY');
 };
 
 async function handler(ctx) {
@@ -108,7 +107,7 @@ async function handler(ctx) {
                     .find((node) => content(node).text().trim());
                 if (header?.type === 'text') {
                     header.data = header.data.replace(/^\s*[A-Za-z]+\s+\d{4}(?:[ \t]*\|[ \t]*Author:[^\r\n]*)?[ \t]*(?:\r?\n)?/, '');
-                } else if (header && /^[A-Za-z]+\s+\d{4}(?:\s*\|\s*Author:.*)?$/.test(content(header).text().trim())) {
+                } else if (header && /^[A-Za-z]+\s+\d{4}(?:\s*\|\s*Author:.*)?$/.test(content(header).text())) {
                     content(header).remove();
                 }
             }

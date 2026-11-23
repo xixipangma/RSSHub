@@ -4,9 +4,7 @@ import { renderToString } from 'hono/jsx/dom/server';
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
-import { parseDateRange } from '@/utils/parse-date-range';
-import timezone from '@/utils/timezone';
+import { parseDate, parseDateRange } from '@/utils/time';
 
 import { namespace } from './namespace';
 
@@ -74,7 +72,7 @@ export const route: Route = {
                         .find((text) => text.includes('发布日期'))!
                         .replaceAll('发布日期:', '')
                         .trim();
-                    const pubDate = timezone(parseDate(pubDateRaw, 'YYYY-MM-DD'), 8);
+                    const pubDate = parseDate(pubDateRaw, 'YYYY-MM-DD', 8);
 
                     // Default path: return as news, no detail information for return
                     if (!isSpecial) {
@@ -112,7 +110,7 @@ export const route: Route = {
                         ?.replaceAll(/(展览|开展)时间：/g, '')
                         ?.trim();
 
-                    const { startDate, endDate } = parseDateRange(fullDuration || '');
+                    const { startDate, endDate } = parseDateRange(fullDuration);
                     const { imgUrl, itemLink } = item;
 
                     const description = renderToString(

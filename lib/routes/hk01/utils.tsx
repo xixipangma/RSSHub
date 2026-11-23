@@ -5,8 +5,8 @@ import pMap from 'p-map';
 import type { DataItem } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
 import { getRouteLimit } from '@/utils/route-limit';
+import { parseDate } from '@/utils/time';
 
 const rootUrl = 'https://hk01.com';
 const apiRootUrl = 'https://web-data.api.hk01.com';
@@ -143,14 +143,10 @@ const ProcessItems = (items, ctx) => {
                 if (!payload) {
                     throw new Error(`The Hong Kong 01 article is missing its source data: ${item.link}`);
                 }
-                const content = JSON.parse(payload);
-                const article = content.props?.initialProps?.pageProps?.article;
-                if (!article) {
-                    throw new Error(`The Hong Kong 01 source data is missing the article: ${item.link}`);
-                }
+                const article = JSON.parse(payload).props.initialProps.pageProps.article;
 
                 return renderDescription({
-                    image: article.originalImage?.cdnUrl,
+                    image: article.originalImage.cdnUrl,
                     teasers: article.teaser,
                     blocks: article.blocks,
                 });

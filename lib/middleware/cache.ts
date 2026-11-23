@@ -5,6 +5,7 @@ import RequestInProgressError from '@/errors/types/request-in-progress';
 import type { Data } from '@/types';
 import cacheModule from '@/utils/cache/index';
 import { getRouteCacheKey } from '@/utils/cache/route-key';
+import { toRFC822 } from '@/utils/time';
 
 const bypassList = new Set(['/', '/robots.txt', '/logo.png', '/favicon.ico']);
 
@@ -34,7 +35,9 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
         let bypass = false;
         while (retryTimes > 0) {
             // eslint-disable-next-line no-await-in-loop
-            await new Promise((resolve) => setTimeout(resolve, process.env.NODE_ENV === 'test' ? 3000 : 6000));
+            await new Promise((resolve) => {
+                setTimeout(resolve, process.env.NODE_ENV === 'test' ? 3000 : 6000);
+            });
             // eslint-disable-next-line no-await-in-loop
             if ((await cacheModule.globalCache.get(controlKey)) !== '1') {
                 bypass = true;
@@ -75,7 +78,7 @@ const middleware: MiddlewareHandler = async (ctx, next) => {
 
         const data: Data = ctx.get('data');
         if (ctx.res.headers.get('Cache-Control') !== 'no-cache' && data) {
-            data.lastBuildDate = new Date().toUTCString();
+            data.lastBuildDate = toRFC822(Temporal.Now.instant());
             ctx.set('data', data);
             const body = JSON.stringify(data);
             await cacheModule.globalCache.set(key, body, config.cache.routeExpire);

@@ -6,7 +6,7 @@ import { renderYoutube } from '@/routes/youtube/utils';
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import oftech from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
+import { parseDate } from '@/utils/time';
 
 export const route: Route = {
     path: '/articles',
@@ -53,7 +53,7 @@ const render = (widgets) =>
                 case 'keyFacts':
                     return `<div><ul>${w.keyFacts.map((k) => `<li>${k.text}</li>`).join('')}</ul></div>`;
                 case 'inlineVideo':
-                    return w.provider === 'youtube' ? renderYoutube(true, w.videoId, undefined, undefined) : new Error(`Unhandled inlineVideo provider: ${w.provider}`);
+                    return w.provider === 'youtube' ? renderYoutube(true, w.videoId) : new Error(`Unhandled inlineVideo provider: ${w.provider}`);
                 case 'inlineImage':
                     return w.inlineImageImages
                         .map((image) => {
@@ -134,7 +134,7 @@ async function handler() {
 
                 const nextData = JSON.parse($('script#__NEXT_DATA__').text());
                 const article = nextData.props.pageProps.article;
-                const pubDate = article.displayDate ? parseDate(article.displayDate) : undefined;
+                const pubDate = parseDate(article.displayDate);
                 const author = article.author.name;
                 const heroImage = article.images[findLargestImgKey(article.images)][0];
                 const description = renderFigure(heroImage.url, heroImage.caption) + render(article.body.widgets);

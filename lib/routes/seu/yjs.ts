@@ -4,7 +4,7 @@ import pMap from 'p-map';
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
 import got from '@/utils/got';
-import { parseDate } from '@/utils/parse-date';
+import { parseDate } from '@/utils/time';
 
 const url = 'https://seugs.seu.edu.cn/26671/list.htm';
 
@@ -41,7 +41,7 @@ async function handler() {
             const info = {
                 title: $(element).find('span.news_title > a').attr('title')!,
                 link: new URL($(element).find('span.news_title > a').attr('href')!, url).href,
-                pubDate: $(element).find('span.news_meta').text() ? parseDate(`${$(element).find('span.news_meta').text()}T00:00:00+08:00`) : undefined,
+                pubDate: parseDate(`${$(element).find('span.news_meta').text()}T00:00:00+08:00`),
             };
             return info;
         });

@@ -2,7 +2,7 @@ import { load } from 'cheerio';
 
 import type { DataItem } from '@/types';
 import ofetch from '@/utils/ofetch';
-import { parseDateInTimezone } from '@/utils/parse-date-in-timezone';
+import { parseDate } from '@/utils/time';
 
 export const baseUrl = 'http://www.qstheory.cn';
 
@@ -17,16 +17,13 @@ export const getItem = async (item: DataItem, useArticleTitle = false): Promise<
                 .text()
                 .match(/作者[：:]\s*(.+)/)?.[1]
                 .replaceAll(/\s+/g, ' ')
-                .trim()
         )
         .find(Boolean);
-    if (author) {
-        item.author = author;
-    }
+    item.author = author;
 
     if (useArticleTitle) {
         // Article header: the title and the optional subtitle right after it
-        const $title = $('.inner > h1').first();
+        const $title = $('.inner > h1');
         const title = [$title.text(), $title.next('h2').text()].filter((text) => /\S/.test(text)).join(' ');
         if (title) {
             item.title = title;
@@ -34,7 +31,7 @@ export const getItem = async (item: DataItem, useArticleTitle = false): Promise<
     }
 
     $('.fs-text, .fs-pinglun, .hidden-xs').remove();
-    item.description = $('.highlight, .text').html() || $('.content').html() || undefined;
+    item.description = $('.highlight, .text').html() || $('.content').html();
 
     const dateStr =
         $('.puttime_mobi, .pubtime, .headtitle span')
@@ -45,10 +42,7 @@ export const getItem = async (item: DataItem, useArticleTitle = false): Promise<
             .replace('日', '') || $('meta[name="publishdate"]').attr('content');
 
     if (dateStr) {
-        const parsedDate = parseDateInTimezone(dateStr, 8);
-        if (!Number.isNaN(parsedDate.getTime())) {
-            item.pubDate = parsedDate;
-        }
+        item.pubDate = parseDate(dateStr, 8);
     }
 
     return item;

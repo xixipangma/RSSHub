@@ -2,10 +2,9 @@ import { load } from 'cheerio';
 
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
-import { parseDate } from '@/utils/parse-date';
 import { getPlaywrightPage } from '@/utils/playwright';
 import { fetchWithPage } from '@/utils/playwright-request';
-import timezone from '@/utils/timezone';
+import { parseDate } from '@/utils/time';
 
 export const route: Route = {
     path: '/rczp',
@@ -50,20 +49,17 @@ async function handler() {
                 return {
                     title: $item.next().text(),
                     link: `${rootUrl}/${$item.next().attr('href')}`,
-                    pubDate: timezone(parseDate(`${$item.find('.date-year').text()}-${$item.find('.date-day').text()}`, 'YYYY-MM-DD'), 8),
                 };
             });
-        const orderedList = list;
-        const entries = orderedList;
         const items = await Promise.all(
-            entries.map((item) =>
+            list.map((item) =>
                 cache.tryGet(item.link!, async () => {
                     const detailResponse = await fetchWithPage(page, item.link!, { timeout: 12000 });
                     const detailContent = detailResponse.text;
                     const content = load(detailContent);
 
                     item.description = content('.v_news_content').html();
-                    item.pubDate = timezone(parseDate(content('.info span').first().text().replace('发布时间 : ', '')), 8);
+                    item.pubDate = parseDate(content('.info span').first().text().replace('发布时间 : ', ''), 8);
 
                     return item;
                 })

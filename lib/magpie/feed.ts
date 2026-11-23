@@ -20,27 +20,37 @@ export interface JsonFeed {
     items?: JsonFeedItem[];
 }
 
-const entities: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+const entities = new Map(Object.entries({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }));
 
 const decode = (text: string) =>
     text.replaceAll(/&(#x[\da-f]+|#\d+|\w+);/gi, (whole, name: string) => {
         if (name.startsWith('#')) {
             const code = name[1].toLowerCase() === 'x' ? Number.parseInt(name.slice(2), 16) : Number(name.slice(1));
-            return Number.isFinite(code) && code <= 0x10_ff_ff ? String.fromCodePoint(code) : whole;
+            return code <= 0x10_ff_ff ? String.fromCodePoint(code) : whole;
         }
-        return entities[name.toLowerCase()] ?? whole;
+        return entities.get(name.toLowerCase()) ?? whole;
     });
+
+const removeAll = (text: string, pattern: RegExp) => {
+    let previous: string;
+    do {
+        previous = text;
+        text = text.replaceAll(pattern, '');
+    } while (text !== previous);
+    return text;
+};
 
 /** HTML as plain text: paragraphs and line breaks kept, pictures named, everything else let go. */
 export const htmlToText = (html: string) =>
     decode(
-        html
-            .replaceAll(/<(script|style)[\s\S]*?<\/\1>/gi, '')
-            .replaceAll(/<img[^>]*?alt="([^"]+)"[^>]*>/gi, '[image: $1]')
-            .replaceAll(/<img[^>]*>/gi, '[image]')
-            .replaceAll(/<br\s*\/?>/gi, '\n')
-            .replaceAll(/<\/(p|div|li|h[1-6]|blockquote|pre|tr)>/gi, '\n')
-            .replaceAll(/<[^>]+>/g, '')
+        removeAll(
+            removeAll(html, /<(script|style)[\s\S]*?<\/\1>/gi)
+                .replaceAll(/<img[^>]*?alt="([^"]+)"[^>]*>/gi, '[image: $1]')
+                .replaceAll(/<img[^>]*>/gi, '[image]')
+                .replaceAll(/<br\s*\/?>/gi, '\n')
+                .replaceAll(/<\/(p|div|li|h[1-6]|blockquote|pre|tr)>/gi, '\n'),
+            /<[^>]+>/g
+        )
     )
         .replaceAll(/[ \t\f\v]+/g, ' ')
         .replaceAll(/\s*\n\s*/g, '\n')

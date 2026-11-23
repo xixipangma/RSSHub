@@ -2,11 +2,9 @@ import { load } from 'cheerio';
 import { renderToString } from 'hono/jsx/dom/server';
 
 import InvalidParameterError from '@/errors/types/invalid-parameter';
-import type { Data, DataItem, Route } from '@/types';
+import type { DataItem, Route } from '@/types';
 import ofetch from '@/utils/ofetch';
-import { parseDate } from '@/utils/parse-date';
-import { parseDateRange } from '@/utils/parse-date-range';
-import timezone from '@/utils/timezone';
+import { parseDate, parseDateRange } from '@/utils/time';
 
 import { namespace } from './namespace';
 
@@ -91,7 +89,7 @@ export const route: Route = {
             const { title, link, imgUrl, fullDuration, location } = item;
 
             const { startDate, endDate } = parseDateRange(fullDuration);
-            const pubDate = startDate ? timezone(parseDate(startDate), 8) : undefined;
+            const pubDate = startDate ? parseDate(startDate, 8) : undefined;
 
             const description = renderToString(
                 <div>
@@ -136,6 +134,6 @@ export const route: Route = {
             link: listUrl,
             language: 'zh-CN',
             item: items,
-        } as Data;
+        };
     },
 };

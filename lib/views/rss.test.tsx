@@ -94,6 +94,13 @@ describe('RSS view', () => {
         expect(html).toContain('<category>News</category>');
     });
 
+    it.each([3723, 0])('renders the itunes duration %s in seconds', (duration) => {
+        const html = renderToString(<RSS data={{ title: 'Podcast', item: [{ title: 'Episode', itunes_duration: duration }] }} />);
+
+        expect(html).toContain('xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"');
+        expect(html).toContain(`<itunes:duration>${duration}</itunes:duration>`);
+    });
+
     it('uses the first attachment when no explicit enclosure is provided', () => {
         const html = renderToString(
             <RSS
@@ -190,6 +197,7 @@ describe('RSS view', () => {
                                     url: 'https://example.com/a.jpg',
                                     width: 250,
                                     children: 'child',
+                                    // oxlint-disable-next-line eslint-js/no-restricted-syntax - test
                                     dangerouslySetInnerHTML: { __html: '<injected/>' },
                                 } as any,
                             },

@@ -4,9 +4,10 @@ import pMap from 'p-map';
 import InvalidParameterError from '@/errors/types/invalid-parameter';
 import type { DataItem, Route } from '@/types';
 import cache from '@/utils/cache';
-import { parseDate } from '@/utils/parse-date';
-import { getPlaywrightPage, type Page } from '@/utils/playwright';
+import type { Page } from '@/utils/playwright';
+import { getPlaywrightPage } from '@/utils/playwright';
 import { getRouteLimit } from '@/utils/route-limit';
+import { parseDateStrict } from '@/utils/time';
 import { isOnSite } from '@/utils/valid-host';
 
 const baseUrl = 'https://ifs.org.uk';
@@ -34,8 +35,7 @@ export const route: Route = {
 };
 
 function parseCalendarDate(value: string) {
-    const date = value.trim() ? parseDate(value.trim(), 'D MMMM YYYY', true) : undefined;
-    return date && Number.isFinite(date.getTime()) ? new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())) : undefined;
+    return parseDateStrict(value, 'D MMMM YYYY');
 }
 
 async function getItem(item: DataItem, page: Page) {
@@ -49,7 +49,6 @@ async function getItem(item: DataItem, page: Page) {
         const response = await page.content();
         const $ = load(response);
         const content = $('main .c-text-block__container.js-wysiwyg');
-        content.find('script, style, button').remove();
         const description = content
             .toArray()
             .map((element) => $(element).html())
@@ -62,7 +61,7 @@ async function getItem(item: DataItem, page: Page) {
             .toArray()
             .map((element) => $(element).text());
         const detail: Pick<DataItem, 'description' | 'author' | 'category' | 'enclosure_url' | 'enclosure_type'> = { description, author, category };
-        const pdf = $('main .c-download-block a[href$=".pdf"]').first().attr('href');
+        const pdf = $('main .c-download-block a[href$=".pdf"]').attr('href');
         if (pdf) {
             detail.enclosure_url = new URL(pdf, baseUrl).href;
             detail.enclosure_type = 'application/pdf';
@@ -102,7 +101,7 @@ async function handler(ctx) {
                     pubDate: parseCalendarDate(date),
                 };
             });
-        return { title: `IFS - ${$('main h1').first().text()}`, link, language: 'en' as const, item: await pMap(items, (item) => getItem(item, page), { concurrency: 1 }) };
+        return { title: `IFS - ${$('main h1').text()}`, link, language: 'en' as const, item: await pMap(items, (item) => getItem(item, page), { concurrency: 1 }) };
     } finally {
         await destroy();
     }
