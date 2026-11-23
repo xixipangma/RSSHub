@@ -20,7 +20,7 @@ Keep this fork reasonably current with DIYgod/RSSHub while preserving fork-speci
 ## Vercel deployment invariants
 
 - Vercel is the deployment path for this fork, triggered automatically when commits land on `origin/master`. Because pushing directly to `master` deploys to production immediately, all changes must be submitted via feature/sync branches and Pull Requests rather than pushed to `master` directly.
-- Preserve the current Vercel-specific setup unless an explicitly verified replacement is part of the task. At present this includes `vercel.json`, the `vercel-build` script, Node `24.x`, pnpm `12.15.0`, and the Vercel install command (`pnpm install --ignore-scripts --no-frozen-lockfile`) with the Patchright include-files configuration.
+- Preserve the current Vercel-specific setup unless an explicitly verified replacement is part of the task. At present this includes `vercel.json`, the `vercel-build` script, Node `^26.13.0` (or `26.x`), pnpm `12.15.0`, and the Vercel install command (`pnpm install --ignore-scripts --no-frozen-lockfile`) with the Patchright include-files configuration.
 - Before changing Node, pnpm/npm, lockfile, build, or `vercel.json` settings, identify why the fork differs from upstream, check the production impact, and validate a Vercel-compatible build. Do not casually normalize these files to upstream defaults.
 - Never expose deployment tokens, environment variables, or other credentials in commits, logs, or responses.
 
