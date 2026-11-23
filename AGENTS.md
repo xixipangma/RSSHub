@@ -11,15 +11,16 @@ This is the `xixipangma/RSSHub` fork of [DIYgod/RSSHub](https://github.com/DIYgo
 Keep this fork reasonably current with DIYgod/RSSHub while preserving fork-specific changes.
 
 1. Before a sync, inspect remotes, current branch, working tree, and the commits/diff that distinguish this fork from upstream. Leave unrelated user changes untouched.
-2. Fetch upstream and merge or rebase deliberately; do not use `reset --hard`, force-push, or a wholesale overwrite of the fork.
-3. Resolve every conflict in favor of a working combination of upstream improvements and the fork's Vercel/Hermes-specific behavior. Re-check custom files after the integration, especially deployment configuration, runtime/package-manager settings, and custom routes.
-4. Run the relevant formatting, type-check, and build/route validation commands before publishing. Investigate deployment-specific build failures rather than silently reverting required customizations.
-5. For completed code or configuration changes, create a descriptive commit and push it to `origin` so Vercel can deploy it. Do not commit or push unrelated pre-existing changes; ask if the intended commit scope is unclear.
+2. Always create a dedicated branch (e.g. `sync/upstream-YYYY-MM-DD` or `fix/...` / `feat/...`). **Never merge directly into `master` or push directly to `origin/master`.**
+3. Fetch upstream and merge or rebase deliberately on the branch; do not use `reset --hard`, force-push, or a wholesale overwrite of the fork.
+4. Resolve every conflict in favor of a working combination of upstream improvements and the fork's Vercel/Hermes-specific behavior. Re-check custom files after the integration, especially deployment configuration, runtime/package-manager settings, and custom routes.
+5. Run the relevant formatting, type-check, and build/route validation commands before publishing. Investigate deployment-specific build failures rather than silently reverting required customizations.
+6. For completed code or configuration changes, create a descriptive commit, push the dedicated branch to `origin`, and open a Pull Request targeting `master` on GitHub (e.g., using `gh pr create`). The repository owner will review and merge the PR, which triggers the Vercel deployment. Do not commit or push unrelated pre-existing changes.
 
 ## Vercel deployment invariants
 
-- Vercel is the deployment path for this fork. Use the connected Vercel tools when deployment status, logs, or configuration need inspection or management.
-- Preserve the current Vercel-specific setup unless an explicitly verified replacement is part of the task. At present this includes `vercel.json`, the `vercel-build` script, Node `24.x`, pnpm `12.15.0`, and the Vercel install command (`pnpm install --ignore-scripts --no-frozen-lockfile`) with the Patchright include-files configuration.
+- Vercel is the deployment path for this fork, triggered automatically when commits land on `origin/master`. Because pushing directly to `master` deploys to production immediately, all changes must be submitted via feature/sync branches and Pull Requests rather than pushed to `master` directly.
+- Preserve the current Vercel-specific setup unless an explicitly verified replacement is part of the task. At present this includes `vercel.json`, the `vercel-build` script, Node `^26.13.0` (or `26.x`), pnpm `12.15.0`, and the Vercel install command (`pnpm install --ignore-scripts --no-frozen-lockfile`) with the Patchright include-files configuration.
 - Before changing Node, pnpm/npm, lockfile, build, or `vercel.json` settings, identify why the fork differs from upstream, check the production impact, and validate a Vercel-compatible build. Do not casually normalize these files to upstream defaults.
 - Never expose deployment tokens, environment variables, or other credentials in commits, logs, or responses.
 
