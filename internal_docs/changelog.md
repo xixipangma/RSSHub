@@ -2,6 +2,14 @@
 
 This is the durable, newest-first record of repository changes for agents maintaining this fork. Update it in the same commit as every repository change. Do not record secrets or private data.
 
+## 2026-11-23 — Require branch and PR workflow in AGENTS.md
+
+- **Summary:** Updated agent maintenance instructions in `AGENTS.md` to strictly require creating a dedicated branch and opening a GitHub Pull Request for all changes and upstream synchronizations. Prohibited merging or pushing directly to `master` so the owner can review and merge PRs to trigger Vercel deployments.
+- **Affected files:** `AGENTS.md`, `internal_docs/changelog.md`.
+- **Rationale:** Pushing directly to `master` automatically triggers a production deployment on Vercel. A branch + PR workflow allows owner review and controlled deployment.
+- **Verification:** Verified `AGENTS.md` wording and consistency with repository deployment policies.
+- **Commit:** `docs: require branch and PR workflow in AGENTS.md`.
+
 ## 2026-11-23 — Sync upstream DIYgod/RSSHub (102 commits) locally
 
 - **Summary:** Synchronized 102 commits from `DIYgod/RSSHub:master` (up to `61f451228`), bringing in upstream route updates (Together AI, USCC, Facebook search, etc.), dependency bumps, and linting configuration.
