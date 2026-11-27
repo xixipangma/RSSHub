@@ -2,6 +2,14 @@
 
 This is the durable, newest-first record of repository changes for agents maintaining this fork. Update it in the same commit as every repository change. Do not record secrets or private data.
 
+## 2026-11-27 — Pin rss-parser>entities to 7.0.1 to fix Vercel runtime ERR_REQUIRE_ESM
+
+- **Summary:** Pinned `'rss-parser@3.13.0>entities': '7.0.1'` in `pnpm-workspace.yaml` and updated `pnpm-lock.yaml`, resolving the HTTP 503 `ERR_REQUIRE_ESM` crash on routes using `rss-parser` (such as `/cloudflare/blog`) in Vercel's serverless Node.js runtime.
+- **Affected files:** `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `internal_docs/changelog.md`.
+- **Rationale:** `rss-parser@3.13.0` (`lib/utils.js`) is CommonJS and calls `require('entities')`. Upstream `pnpm-workspace.yaml` overrode `'rss-parser@3.13.0>entities'` to `^9.0.0`, which is ESM-only (`entities@9.0.0` has no `"require"` CommonJS export). Vercel's serverless Node runtime disables `require()` of ESM modules, causing routes that lazily import `rss-parser` to fail with `ERR_REQUIRE_ESM`. Pinning `rss-parser@3.13.0>entities` to `7.0.1` provides a dual-package `"require"` CommonJS entrypoint (`./dist/commonjs/index.js`) while leaving top-level `entities@9.0.0` and `parse5` untouched.
+- **Verification:** Ran `pnpm install --ignore-scripts --no-frozen-lockfile` (`pnpm-lock.yaml` updated only `rss-parser@3.13.0>entities` to `7.0.1`); verified `require('rss-parser')`, `require('sanitize-html')`, and live `lib/routes/cloudflare/blog.ts` handler execution (`Cloudflare Blog`, 20 items) under `node --no-experimental-require-module`; ran `oxfmt --check` and Vitest suites `lib/utils/rss-parser.test.ts` (8/8), `lib/server.test.ts` (1/1), `lib/app-bootstrap.test.tsx` (1/1), `lib/middleware/parameter.test.ts` (132/132), `lib/middleware/template.test.ts` (27/27), and `lib/middleware/anti-hotlink.test.ts` (20/20).
+- **Commit:** `fix(vercel): pin rss-parser entities to 7.0.1 for CommonJS compatibility`.
+
 ## 2026-11-23 — Upgrade Node engine to ^26.13.0 for Temporal API support
 
 - **Summary:** Updated `engines.node` in `package.json` to `^26.13.0` (matching upstream) and updated `AGENTS.md`. This allows Vercel builds to run on Node.js 26 where the ECMAScript `Temporal` API is globally defined, resolving the `ReferenceError: Temporal is not defined` build failure during route compilation.
@@ -24,10 +32,10 @@ This is the durable, newest-first record of repository changes for agents mainta
 - **Affected files:** Core route files, core shims, `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `internal_docs/changelog.md`.
 - **Upstream revision range:** `a049efac8...61f451228` (102 commits).
 - **Conflicts resolved & retained fork invariants:**
-  - Resolved `package.json` merge conflict to preserve `engines: { "node": "24.x" }` and `scripts.prepare: "exit 0"`.
-  - Preserved `pnpm-workspace.yaml` overrides (`htmlparser2: '10.1.0'`, `'sanitize-html>htmlparser2': '10.1.0'`) and omitted broken global `dom-serializer` override.
-  - Preserved `vercel.json` (`installCommand: "pnpm install --ignore-scripts --no-frozen-lockfile"` and Patchright include-files).
-  - Preserved `.npmrc` (`ignore-scripts=true`) and `.github/workflows/sync-fork.yml` (`if: false`).
+    - Resolved `package.json` merge conflict to preserve `engines: { "node": "24.x" }` and `scripts.prepare: "exit 0"`.
+    - Preserved `pnpm-workspace.yaml` overrides (`htmlparser2: '10.1.0'`, `'sanitize-html>htmlparser2': '10.1.0'`) and omitted broken global `dom-serializer` override.
+    - Preserved `vercel.json` (`installCommand: "pnpm install --ignore-scripts --no-frozen-lockfile"` and Patchright include-files).
+    - Preserved `.npmrc` (`ignore-scripts=true`) and `.github/workflows/sync-fork.yml` (`if: false`).
 - **Verification:** Ran `pnpm install --ignore-scripts --no-frozen-lockfile` to update lockfile and dependencies without script execution issues; verified `findOrphanFiles` passes cleanly.
 - **Commit:** `sync: merge 102 upstream commits from DIYgod/RSSHub:master`.
 
@@ -37,10 +45,10 @@ This is the durable, newest-first record of repository changes for agents mainta
 - **Affected files:** Core route files, `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `internal_docs/changelog.md`.
 - **Upstream revision range:** `c86f1d537...a049efac8` (147 commits).
 - **Conflicts resolved & retained fork invariants:**
-  - Preserved `pnpm-workspace.yaml` overrides (`htmlparser2: '10.1.0'`, `'sanitize-html>htmlparser2': '10.1.0'`) and omitted broken global `dom-serializer` override to prevent runtime `ERR_REQUIRE_ESM`.
-  - Preserved `package.json` (`engines: { "node": "24.x" }` and `scripts.prepare: "exit 0"`).
-  - Preserved `vercel.json` (`installCommand: "pnpm install --ignore-scripts --no-frozen-lockfile"` and Patchright include-files).
-  - Preserved `.npmrc` (`ignore-scripts=true`) and `.github/workflows/sync-fork.yml` (`if: false`).
+    - Preserved `pnpm-workspace.yaml` overrides (`htmlparser2: '10.1.0'`, `'sanitize-html>htmlparser2': '10.1.0'`) and omitted broken global `dom-serializer` override to prevent runtime `ERR_REQUIRE_ESM`.
+    - Preserved `package.json` (`engines: { "node": "24.x" }` and `scripts.prepare: "exit 0"`).
+    - Preserved `vercel.json` (`installCommand: "pnpm install --ignore-scripts --no-frozen-lockfile"` and Patchright include-files).
+    - Preserved `.npmrc` (`ignore-scripts=true`) and `.github/workflows/sync-fork.yml` (`if: false`).
 - **Commit:** `sync: merge 147 upstream commits from DIYgod/RSSHub:master`.
 
 ## 2026-11-12 — Sync upstream DIYgod/RSSHub (74 commits) & deploy to Vercel
@@ -49,10 +57,10 @@ This is the durable, newest-first record of repository changes for agents mainta
 - **Affected files:** 66 files across `lib/routes/*`, `package.json`, `pnpm-lock.yaml`, `internal_docs/changelog.md`.
 - **Upstream revision range:** `301009ce2...c86f1d537` (74 commits).
 - **Conflicts resolved & retained fork invariants:**
-  - Resolved `package.json` merge conflict to preserve `engines: { "node": "24.x" }` and `scripts.prepare: "exit 0"`.
-  - Preserved `pnpm-workspace.yaml` overrides (`htmlparser2: '10.1.0'`, `'sanitize-html>htmlparser2': '10.1.0'`) and omitted broken global `dom-serializer` override to prevent runtime `ERR_REQUIRE_ESM`.
-  - Preserved `vercel.json` (`installCommand: "pnpm install --ignore-scripts --no-frozen-lockfile"` and Patchright include-files).
-  - Preserved `.npmrc` (`ignore-scripts=true`) and `.github/workflows/sync-fork.yml` (`if: false`).
+    - Resolved `package.json` merge conflict to preserve `engines: { "node": "24.x" }` and `scripts.prepare: "exit 0"`.
+    - Preserved `pnpm-workspace.yaml` overrides (`htmlparser2: '10.1.0'`, `'sanitize-html>htmlparser2': '10.1.0'`) and omitted broken global `dom-serializer` override to prevent runtime `ERR_REQUIRE_ESM`.
+    - Preserved `vercel.json` (`installCommand: "pnpm install --ignore-scripts --no-frozen-lockfile"` and Patchright include-files).
+    - Preserved `.npmrc` (`ignore-scripts=true`) and `.github/workflows/sync-fork.yml` (`if: false`).
 - **Verification:** Verified `pnpm install --ignore-scripts --no-frozen-lockfile` completes in 6ms; `npm run build:routes` and `tsdown` generate 4480+ routes cleanly; and `server.mjs` loads without error in production mode under `--no-experimental-require-module`.
 - **Commit:** `sync: merge 74 upstream commits from DIYgod/RSSHub:master`.
 
@@ -79,11 +87,11 @@ This is the durable, newest-first record of repository changes for agents mainta
 - **Rationale:** Previous Vercel build failed on `pnpm install --ignore-scripts --no-frozen-lockfile` because `pnpm-lock.yaml` had snapshot references pointing to `htmlparser2: 10.1.0` without a corresponding package definition. Under pnpm v12, `pnpm.overrides` inside `package.json` is ignored, and upstream's `pnpm-workspace.yaml` pins `htmlparser2: ^12.0.0`. Node 24 supports synchronous ESM `require()` properly, eliminating the historical need for `htmlparser2: 10.1.0`.
 - **Upstream revision range:** `621561d0c...301009ce2` (6 commits).
 - **Conflicts resolved & retained fork invariants:**
-  - Merge completed cleanly with no conflicts.
-  - Retained `vercel.json` (`installCommand: "pnpm install --ignore-scripts --no-frozen-lockfile"` and Patchright include-files).
-  - Retained `.npmrc` (`ignore-scripts=true`).
-  - Retained `.github/workflows/sync-fork.yml` (`if: false`).
-  - Retained Node `24.x` engine and prepare `exit 0` in `package.json`.
+    - Merge completed cleanly with no conflicts.
+    - Retained `vercel.json` (`installCommand: "pnpm install --ignore-scripts --no-frozen-lockfile"` and Patchright include-files).
+    - Retained `.npmrc` (`ignore-scripts=true`).
+    - Retained `.github/workflows/sync-fork.yml` (`if: false`).
+    - Retained Node `24.x` engine and prepare `exit 0` in `package.json`.
 - **Verification:** Verified `pnpm install --ignore-scripts --no-frozen-lockfile` exits 0 cleanly in 25ms; verified `build:routes` generates full route registry; verified `require('sanitize-html')` loads without error.
 - **Commit:** `sync: merge upstream changes from DIYgod/RSSHub & fix lockfile for Vercel`.
 
@@ -94,11 +102,11 @@ This is the durable, newest-first record of repository changes for agents mainta
 - **Rationale:** The `/claude/blog` route was throwing `Article content was not found` on Anthropic research articles (e.g. `/research/formal-verification`) due to Anthropic's October 2026 hashed CSS class changes. Upstream commit `9601f8ba7` resolved this by adding the `article > div > div[class$="_body"]` selector.
 - **Upstream revision range:** `3afc108d0...8f4fd4356` (141 commits).
 - **Conflicts resolved & retained fork invariants:**
-  - Resolved merge conflict in `package.json` to incorporate upstream `magpie` configuration while retaining fork-specific `prepare: "exit 0"`, Node `24.x` engine, and `htmlparser2: "10.1.0"` overrides.
-  - Retained `vercel.json` (`installCommand: "pnpm install --ignore-scripts --no-frozen-lockfile"`).
-  - Retained `.npmrc` (`ignore-scripts=true`).
-  - Retained `.github/workflows/sync-fork.yml` (`if: false`).
-  - Retained `pnpm-lock.yaml` pins for `htmlparser2: 10.1.0`.
+    - Resolved merge conflict in `package.json` to incorporate upstream `magpie` configuration while retaining fork-specific `prepare: "exit 0"`, Node `24.x` engine, and `htmlparser2: "10.1.0"` overrides.
+    - Retained `vercel.json` (`installCommand: "pnpm install --ignore-scripts --no-frozen-lockfile"`).
+    - Retained `.npmrc` (`ignore-scripts=true`).
+    - Retained `.github/workflows/sync-fork.yml` (`if: false`).
+    - Retained `pnpm-lock.yaml` pins for `htmlparser2: 10.1.0`.
 - **Verification:** Validated `package.json` JSON structure, confirmed `git diff upstream/master HEAD` reflects only intended fork customizations, verified merge commit `d8c4cca0e`, and checked working tree status.
 - **Commit:** `docs: record upstream sync in changelog`.
 
