@@ -185,7 +185,7 @@ overrides:
   hasown: npm:@nolyfill/hasown@^1
   htmlparser2: 10.1.0
   sanitize-html>htmlparser2: 10.1.0
-  rss-parser@3.13.0>entities: ^9.0.0
+  rss-parser@3.13.0>entities: 7.0.1
   rss-parser@3.13.0>xml2js: ^0.6.2
   safe-buffer: npm:@nolyfill/safe-buffer@^1
   safer-buffer: npm:@nolyfill/safer-buffer@^1
@@ -10912,7 +10912,7 @@ snapshots:
 
   rss-parser@3.13.0(patch_hash=d3b437d9ea808e15477c5ecaa98ac5d051d806ee6809e75e30d27200308a0a6f):
     dependencies:
-      entities: 9.0.0
+      entities: 7.0.1
       xml2js: 0.6.2
 
   safe-stable-stringify@2.5.0: {}
